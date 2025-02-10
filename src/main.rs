@@ -38,10 +38,10 @@ fn wait_handshake(handle: &mut DeviceHandle<rusb::GlobalContext>, expected_hands
     Ok(())
 }
 
-fn receive_response(handle: &mut DeviceHandle<rusb::GlobalContext>) -> anyhow::Result<Vec<u8>> {
+fn receive_response(handle: &mut DeviceHandle<rusb::GlobalContext>, timeout: Duration) -> anyhow::Result<Vec<u8>> {
     let mut buf = Vec::with_capacity(65536);
     buf.resize(buf.capacity(), 0);
-    let length = handle.read_bulk(ENDPOINT_IN, &mut buf, TIMEOUT)
+    let length = handle.read_bulk(ENDPOINT_IN, &mut buf, timeout)
         .map_err(|e| anyhow::anyhow!("receive error: {}", e))?;
 
     tracing::debug!("received: {:02X?}", &buf[..length]);
@@ -65,7 +65,7 @@ fn start_ram_download(handle: &mut DeviceHandle<rusb::GlobalContext>) -> anyhow:
     handle.write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
         .map_err(|e| anyhow::anyhow!("send error: {}", e))?;
 
-    let response = receive_response(handle)?;
+    let response = receive_response(handle, TIMEOUT)?;
     let response_view = frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(anyhow::anyhow!("unexpected response: {:04X?}", response_view.command_response()));
@@ -90,7 +90,7 @@ fn start_partition_absolute_32(handle: &mut DeviceHandle<rusb::GlobalContext>, s
     handle.write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
         .map_err(|e| anyhow::anyhow!("send error: {}", e))?;
 
-    let response = receive_response(handle)?;
+    let response = receive_response(handle, TIMEOUT)?;
     let response_view = frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(anyhow::anyhow!("unexpected response: {:04X?}", response_view.command_response()));
@@ -114,7 +114,7 @@ fn start_partition_absolute(handle: &mut DeviceHandle<rusb::GlobalContext>, star
     handle.write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
         .map_err(|e| anyhow::anyhow!("send error: {}", e))?;
 
-    let response = receive_response(handle)?;
+    let response = receive_response(handle, TIMEOUT)?;
     let response_view = frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(anyhow::anyhow!("unexpected response: {:04X?}", response_view.command_response()));
@@ -140,7 +140,7 @@ fn start_partition_id(handle: &mut DeviceHandle<rusb::GlobalContext>, partition_
     handle.write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
         .map_err(|e| anyhow::anyhow!("send error: {}", e))?;
 
-    let response = receive_response(handle)?;
+    let response = receive_response(handle, TIMEOUT)?;
     let response_view = frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(anyhow::anyhow!("unexpected response: {:04X?}", response_view.command_response()));
@@ -163,7 +163,7 @@ fn start_block(handle: &mut DeviceHandle<rusb::GlobalContext>, block_size: u16) 
     handle.write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
         .map_err(|e| anyhow::anyhow!("send error: {}", e))?;
 
-    let response = receive_response(handle)?;
+    let response = receive_response(handle, TIMEOUT)?;
     let response_view = frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(anyhow::anyhow!("unexpected response: {:04X?}", response_view.command_response()));
@@ -171,7 +171,7 @@ fn start_block(handle: &mut DeviceHandle<rusb::GlobalContext>, block_size: u16) 
     Ok(())
 }
 
-fn end_partition(handle: &mut DeviceHandle<rusb::GlobalContext>) -> anyhow::Result<()> {
+fn end_partition(handle: &mut DeviceHandle<rusb::GlobalContext>, timeout: Duration) -> anyhow::Result<()> {
     tracing::debug!("end_partition");
     let mut buf = [0u8; frame::MINIMUM_LENGTH];
     let mut frame = frame::AxdlFrameViewMut::new(&mut buf);
@@ -179,10 +179,10 @@ fn end_partition(handle: &mut DeviceHandle<rusb::GlobalContext>) -> anyhow::Resu
     frame.set_command_response(0x0003);  // End partition
     frame.finalize();
 
-    handle.write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
+    handle.write_bulk(ENDPOINT_OUT, &buf, timeout)
         .map_err(|e| anyhow::anyhow!("send error: {}", e))?;
 
-    let response = receive_response(handle)?;
+    let response = receive_response(handle, timeout)?;
     let response_view = frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(anyhow::anyhow!("unexpected response: {:04X?}", response_view.command_response()));
@@ -201,7 +201,7 @@ fn end_ram_download(handle: &mut DeviceHandle<rusb::GlobalContext>) -> anyhow::R
     handle.write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
         .map_err(|e| anyhow::anyhow!("send error: {}", e))?;
 
-    let response = receive_response(handle)?;
+    let response = receive_response(handle, TIMEOUT)?;
     let response_view = frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(anyhow::anyhow!("unexpected response: {:04X?}", response_view.command_response()));
@@ -227,7 +227,7 @@ fn set_partition_table(handle: &mut DeviceHandle<rusb::GlobalContext>, partition
     handle.write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
         .map_err(|e| anyhow::anyhow!("send error: {}", e))?;
 
-    let response = receive_response(handle)?;
+    let response = receive_response(handle, TIMEOUT)?;
     let response_view = frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(anyhow::anyhow!("unexpected response: {:04X?}", response_view.command_response()));
@@ -295,13 +295,13 @@ fn main() -> anyhow::Result<()> {
                 start_block(&mut handle, chunk.len() as u16)?;
                 handle.write_bulk(ENDPOINT_OUT, chunk, TIMEOUT)
                     .map_err(|e| anyhow::anyhow!("send error: {}", e))?;
-                let response = receive_response(&mut handle)?;
+                let response = receive_response(&mut handle, TIMEOUT)?;
                 let response_view = frame::AxdlFrameView::new(&response);
                 if response_view.command_response() != Some(0x0080) {
                     return Err(anyhow::anyhow!("unexpected response: {:04X?}", response_view.command_response()));
                 }
             }
-            end_partition(&mut handle)?;
+            end_partition(&mut handle, TIMEOUT)?;
             end_ram_download(&mut handle)?;
 
             wait_handshake(&mut handle, "fdl1")?;
@@ -313,20 +313,23 @@ fn main() -> anyhow::Result<()> {
                 start_block(&mut handle, chunk.len() as u16)?;
                 handle.write_bulk(ENDPOINT_OUT, chunk, TIMEOUT)
                     .map_err(|e| anyhow::anyhow!("send error: {}", e))?;
-                let response = receive_response(&mut handle)?;
+                let response = receive_response(&mut handle, TIMEOUT)?;
                 let response_view = frame::AxdlFrameView::new(&response);
                 if response_view.command_response() != Some(0x0080) {
                     return Err(anyhow::anyhow!("unexpected response: {:04X?}", response_view.command_response()));
                 }
             }
-            end_partition(&mut handle)?;
+            end_partition(&mut handle, TIMEOUT)?;
             end_ram_download(&mut handle)?;
 
             // Download the partition table.
             set_partition_table(&mut handle, &partition_table)?;
 
-            // Download all of "CODE" images except rootfs.
-            for image in project.images().iter().filter(|image| image.r#type() == partition::ImageType::Code && image.name() != "ROOTFS") {
+            // Download all of "CODE" images
+            let download_rootfs = true;
+            for image in project.images().iter().filter(|image| image.r#type() == partition::ImageType::Code && (download_rootfs || image.name() != "ROOTFS")) {
+                tracing::info!("Downloading image: {}", image.name());
+
                 let image_data = std::fs::read(base_path.join(image.file().unwrap_or_default()))
                     .map_err(|e| anyhow::anyhow!("failed to read image: {}", e))?;
                 let image_id  = match image.block() {
@@ -334,17 +337,28 @@ fn main() -> anyhow::Result<()> {
                     _ => return Err(anyhow::anyhow!("image {} block is not partition", image.name())),
                 };
                 start_partition_id(&mut handle, &image_id, image_data.len() as u64)?;
+                let report_every = 100;
+                let mut report_every_counter = 0;
+                let mut bytes_transferred = 0;
                 for chunk in image_data.chunks(48000).into_iter() {
                     start_block(&mut handle, chunk.len() as u16)?;
-                    handle.write_bulk(ENDPOINT_OUT, chunk, TIMEOUT)
+                    handle.write_bulk(ENDPOINT_OUT, chunk, Duration::from_secs(60))
                         .map_err(|e| anyhow::anyhow!("send error: {}", e))?;
-                    let response = receive_response(&mut handle)?;
+                    let response = receive_response(&mut handle, Duration::from_secs(60))?;
                     let response_view = frame::AxdlFrameView::new(&response);
                     if response_view.command_response() != Some(0x0080) {
                         return Err(anyhow::anyhow!("unexpected response: {:04X?}", response_view.command_response()));
                     }
+                    bytes_transferred += chunk.len();
+                    if report_every > 0 {
+                        report_every_counter += 1;
+                        if report_every_counter >= report_every {
+                            report_every_counter = 0;
+                            tracing::info!("{}/{} bytes sent", bytes_transferred, image_data.len());                            
+                        }
+                    }
                 }
-                end_partition(&mut handle)?;
+                end_partition(&mut handle, Duration::from_secs(60))?;
             }
         }
         None => tracing::error!("device not found"),
