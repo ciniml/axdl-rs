@@ -1,0 +1,2 @@
+# Original FT232/FT245 VID:PID
+ATTRS{idVendor}=="32c9", ATTRS{idProduct}=="1000", MODE="664", GROUP="plugdev", TAG+="uaccess"
