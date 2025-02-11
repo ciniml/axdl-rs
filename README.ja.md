@@ -53,6 +53,12 @@ rootfsを書き込みたくない場合は、`--exclude-rootfs`オプション�
 cargo run --bin axdl-cli -- --file /path/to/image.axp --wait-for-device --exclude-rootfs
 ```
 
+Windows上など、AxeraのAXDL用公式ドライバをインストールしている環境で使用するには、 `--transport serial` を指定してシリアルポート経由でアクセスするようにします。
+
+```shell
+cargo run --bin axdl-cli -- --file /path/to/image.axp --wait-for-device --transport serial
+```
+
 ## ライセンス
 
 このプロジェクトはApache License 2.0の下でライセンスされています。詳細については[LICENSE](LICENSE)ファイルを参照してください。

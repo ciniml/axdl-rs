@@ -53,6 +53,12 @@ If you don't want to burn the rootfs, specify `--exclude-rootfs` option.
 cargo run --bin axdl-cli -- --file /path/to/image.axp --wait-for-device --exclude-rootfs
 ```
 
+On Windows or other platforms where the official Axera AXDL driver is installed, you can use serial port access by specifying the --transport serial option:
+
+```shell
+cargo run --bin axdl-cli -- --file /path/to/image.axp --wait-for-device --transport serial
+```
+
 ## License
 
 This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
