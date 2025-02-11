@@ -1,3 +1,18 @@
+// SPDX-License-Identifier: Apache-2.0
+// Copyright 2025 Kenta Ida
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
 use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
@@ -30,7 +45,15 @@ pub struct AxdlFrameView<'a> {
 
 impl<'a> std::fmt::Display for AxdlFrameView<'a> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "AxdlFrameView({:08X}, {}, {:04X}, {:02X?}, {:04X})", self.signature().unwrap_or(0), self.length().unwrap_or(0), self.command_response().unwrap_or(0), self.payload().unwrap_or(&[]), self.checksum().unwrap_or(0))
+        write!(
+            f,
+            "AxdlFrameView({:08X}, {}, {:04X}, {:02X?}, {:04X})",
+            self.signature().unwrap_or(0),
+            self.length().unwrap_or(0),
+            self.command_response().unwrap_or(0),
+            self.payload().unwrap_or(&[]),
+            self.checksum().unwrap_or(0)
+        )
     }
 }
 
@@ -94,7 +117,7 @@ impl<'a> AxdlFrameView<'a> {
 
     fn ones_complement_add(lhs: u16, rhs: u16) -> u16 {
         let mut sum = lhs as u32 + rhs as u32;
-        
+
         while sum > 0xffff {
             sum = (sum & 0xffff) + (sum >> 16);
         }
@@ -117,7 +140,10 @@ impl<'a> AxdlFrameView<'a> {
             checksum = Self::ones_complement_add(checksum, value);
         }
         if payload.len() % 2 == 1 {
-            checksum = Self::ones_complement_add(checksum, u16::from_le_bytes([payload[payload.len() - 1], 0]));
+            checksum = Self::ones_complement_add(
+                checksum,
+                u16::from_le_bytes([payload[payload.len() - 1], 0]),
+            );
         }
 
         Some(checksum)
@@ -248,7 +274,9 @@ mod test {
 
     #[test]
     fn test_axdl_frame_view_command_2() {
-        let data = hex_literal::hex!("9F 8E 6D 5C 10 00 81 00 72 6F 6D 63 6F 64 65 20 76 31 2E 30 3B 72 61 77 79 5C");
+        let data = hex_literal::hex!(
+            "9F 8E 6D 5C 10 00 81 00 72 6F 6D 63 6F 64 65 20 76 31 2E 30 3B 72 61 77 79 5C"
+        );
         let view = AxdlFrameView::new(&data);
         assert_eq!(view.signature(), Some(SIGNATURE));
         assert_eq!(view.length(), Some(16));

@@ -2,12 +2,13 @@
 name = "axdl-rs"
 version = "0.1.0"
 edition = "2021"
+license = "Apache-2.0"
 
 [dependencies]
-android-sparse = "0.6.0"
 anyhow = { version = "1.0.95", features = ["backtrace"] }
 bincode = "1.3.3"
 byteorder = "1.5.0"
+clap = { version = "4.5.28", features = ["derive"] }
 hex = { version = "0.4.3", features = ["serde"] }
 rusb = "0.9.4"
 serde = { version = "1.0.217", features = ["derive"] }
@@ -16,6 +17,7 @@ serde_bytes = "0.11.15"
 thiserror = "2.0.11"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+zip = "2.2.2"
 
 [dev-dependencies]
 hex-literal = "0.4.1"
