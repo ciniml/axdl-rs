@@ -4,9 +4,23 @@ This is an unofficial Axera image downloader implementation in Rust to write ima
 
 ## Table of Contents
 
+- [Prepare](#Prepare)
 - [Build](#build)
 - [Usage](#usage)
 - [License](#license)
+
+## Prepare
+
+### Linux 
+
+In order to access to the device from a normal user, you have to configure udev to allow a normal user to access the device.
+To configure udev, copy `99-axdl.rules` into `/etc/udev/rules.d` and reload the configuration of udev.
+
+```
+sudo cp 99-axdl.rules /etc/udev/rules.d/
+sudo udevadm control --reload
+```
+
 
 ## Build
 
