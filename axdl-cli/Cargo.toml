@@ -10,7 +10,7 @@ categories = ["command-line-utilities"]
 readme = "../README.md"
 
 [dependencies]
-axdl = { path = "../axdl" }
+axdl = { path = "../axdl", version = "0.1.0" }
 
 anyhow = { workspace = true, features = ["backtrace"] }
 clap = { workspace = true, features = ["derive"] }
