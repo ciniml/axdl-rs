@@ -7,6 +7,7 @@ This is an unofficial Axera image downloader implementation in Rust to write ima
 ## Table of Contents
 
 - [Prepare](#Prepare)
+- [Install](#Install)
 - [Build](#build)
 - [Usage](#usage)
 - [License](#license)
@@ -21,6 +22,14 @@ To configure udev, copy `99-axdl.rules` into `/etc/udev/rules.d` and reload the 
 ```
 sudo cp 99-axdl.rules /etc/udev/rules.d/
 sudo udevadm control --reload
+```
+
+## Install
+
+`axdl-cli` can be installed via `cargo install`.
+
+```
+cargo install axdl-cli
 ```
 
 ## Build

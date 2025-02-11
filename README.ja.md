@@ -7,6 +7,7 @@
 ## 目次
 
 - [準備](#準備)
+- [インストール](#インストール)
 - [ビルド](#ビルド)
 - [使用方法](#使用方法)
 - [ライセンス](#ライセンス)
@@ -21,6 +22,14 @@ udevを設定するには、`99-axdl.rules`を`/etc/udev/rules.d`にコピーし
 ```
 sudo cp 99-axdl.rules /etc/udev/rules.d/
 sudo udevadm control --reload
+```
+
+## インストール
+
+`axdl-cli` は `cargo install` にてインストールできます。
+
+```
+cargo install axdl-cli
 ```
 
 ## ビルド
