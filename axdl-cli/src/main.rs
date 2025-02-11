@@ -60,8 +60,6 @@ struct Args {
         default_value = "usb"
     )]
     transport: Transport,
-    #[clap(short, long, help = "Specify the serial port device")]
-    device: Option<String>,
 }
 
 struct CliProgress {
@@ -151,13 +149,8 @@ fn main() -> anyhow::Result<()> {
     let mut device = loop {
         let device: Option<DynDevice> = match args.transport {
             Transport::Serial => {
-                let target_path = args
-                    .device
-                    .as_deref()
-                    .ok_or(anyhow::anyhow!("Serial device path is required"))?;
                 axdl::transport::SerialTransport::list_devices()?
                     .iter()
-                    .filter(|&path| path.is_match(target_path))
                     .next()
                     .map(|path| axdl::transport::SerialTransport::open_device(path).ok())
                     .flatten()

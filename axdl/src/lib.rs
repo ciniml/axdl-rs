@@ -68,49 +68,6 @@ pub trait DownloadProgress {
     }
 }
 
-// pub fn wait_for_device<R: std::io::Read + std::io::Seek, Progress: DownloadProgress>(
-//     image_reader: &mut R,
-//     config: &DownloadConfig,
-//     progress: &mut Progress,
-// ) -> Result<(), AxdlError> {
-
-//     if config.wait_for_device {
-//         if let Some(timeout) = config.wait_for_device_timeout_secs {
-//             tracing::debug!(
-//                 "Waiting for the device to be ready (timeout={}s)...",
-//                 timeout
-//             );
-//             progress.report_progress(
-//                 &format!("Waiting for the device to be ready (timeout={}s)", timeout),
-//                 None,
-//             );
-//         } else {
-//             tracing::debug!("Waiting for the device to be ready...");
-//             progress.report_progress("Waiting for the device to be ready", None);
-//         }
-//     }
-
-//     let wait_start = std::time::Instant::now();
-//     let mut handle = loop {
-//         match rusb::open_device_with_vid_pid(communication::VENDOR_ID, communication::PRODUCT_ID) {
-//             Some(handle) => {
-//                 break handle;
-//             }
-//             None => {}
-//         }
-//         if config.wait_for_device {
-//             if let Some(timeout) = config.wait_for_device_timeout_secs {
-//                 if wait_start.elapsed() > Duration::from_secs(timeout) {
-//                     return Err(AxdlError::DeviceTimeout);
-//                 }
-//             }
-//             std::thread::sleep(Duration::from_secs(1));
-//         } else {
-//             return Err(AxdlError::DeviceNotFound);
-//         }
-//     };
-// }
-
 pub fn download_image<R: std::io::Read + std::io::Seek, Progress: DownloadProgress>(
     image_reader: &mut R,
     device: &mut transport::DynDevice,

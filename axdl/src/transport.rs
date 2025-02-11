@@ -143,8 +143,19 @@ impl Transport for SerialTransport {
         let list = serialport::available_ports()
             .map_err(AxdlError::SerialError)?
             .iter()
-            .map(|port_info| SerialDevicePath {
-                port_name: port_info.port_name.clone(),
+            .filter_map(|port_info| {
+                match &port_info.port_type {
+                    serialport::SerialPortType::UsbPort(usb) => {
+                        if usb.vid == VENDOR_ID && usb.pid == PRODUCT_ID {
+                            Some(SerialDevicePath {
+                                port_name: port_info.port_name.clone(),
+                            })
+                        } else {
+                            None
+                        }
+                    }
+                    _ => None,
+                }
             })
             .collect();
         Ok(list)
