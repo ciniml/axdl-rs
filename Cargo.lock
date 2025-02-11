@@ -106,7 +106,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "axdl-rs"
+name = "axdl"
 version = "0.1.0"
 dependencies = [
  "anyhow",

@@ -1,0 +1,23 @@
+[package]
+name = "axdl"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+
+[dependencies]
+anyhow = { workspace = true, features = ["backtrace"] }
+bincode = { workspace = true }
+byteorder = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+hex = { workspace = true, features = ["serde"] }
+rusb = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde-xml-rs = { workspace = true }
+serde_bytes = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+zip = { workspace = true }
+
+[dev-dependencies]
+hex-literal = { workspace = true }
