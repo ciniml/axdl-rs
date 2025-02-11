@@ -18,25 +18,16 @@ use std::time::Duration;
 
 use crate::AxdlError;
 
-pub const VENDOR_ID: u16 = 0x32c9;
-pub const PRODUCT_ID: u16 = 0x1000;
-pub const ENDPOINT_OUT: u8 = 0x01;
-pub const ENDPOINT_IN: u8 = 0x81;
+const HANDSHAKE_REQUEST: [u8; 3] = [0x3c, 0x3c, 0x3c];
 pub const TIMEOUT: Duration = Duration::from_secs(5);
 
-const HANDSHAKE_REQUEST: [u8; 3] = [0x3c, 0x3c, 0x3c];
-
 pub fn wait_handshake(
-    handle: &mut DeviceHandle<rusb::GlobalContext>,
+    device: &mut crate::transport::DynDevice,
     expected_handshake: &str,
 ) -> Result<(), AxdlError> {
-    handle
-        .write_bulk(ENDPOINT_OUT, &HANDSHAKE_REQUEST, TIMEOUT)
-        .map_err(AxdlError::UsbSendError)?;
+    device.write_timeout(&HANDSHAKE_REQUEST, TIMEOUT)?;
     let mut buf = [0u8; 64];
-    let length = handle
-        .read_bulk(ENDPOINT_IN, &mut buf, TIMEOUT)
-        .map_err(AxdlError::UsbReceiveError)?;
+    let length = device.read_timeout(&mut buf, TIMEOUT)?;
 
     tracing::debug!("received: {:02X?}", &buf[..length]);
     let view = crate::frame::AxdlFrameView::new(&buf[..length]);
@@ -66,14 +57,12 @@ pub fn wait_handshake(
 }
 
 pub fn receive_response(
-    handle: &mut DeviceHandle<rusb::GlobalContext>,
+    device: &mut crate::transport::DynDevice,
     timeout: Duration,
 ) -> Result<Vec<u8>, AxdlError> {
     let mut buf = Vec::with_capacity(65536);
     buf.resize(buf.capacity(), 0);
-    let length = handle
-        .read_bulk(ENDPOINT_IN, &mut buf, timeout)
-        .map_err(AxdlError::UsbReceiveError)?;
+    let length = device.read_timeout(&mut buf, timeout)?;
 
     tracing::debug!("received: {:02X?}", &buf[..length]);
     let view = crate::frame::AxdlFrameView::new(&buf[..length]);
@@ -90,18 +79,16 @@ pub fn receive_response(
     Ok(buf)
 }
 
-pub fn start_ram_download(handle: &mut DeviceHandle<rusb::GlobalContext>) -> Result<(), AxdlError> {
+pub fn start_ram_download(device: &mut crate::transport::DynDevice) -> Result<(), AxdlError> {
     tracing::debug!("start_ram_download");
     let mut buf = [0u8; crate::frame::MINIMUM_LENGTH];
     let mut frame = crate::frame::AxdlFrameViewMut::new(&mut buf);
     frame.init();
     frame.finalize();
 
-    handle
-        .write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
-        .map_err(AxdlError::UsbSendError)?;
+    device.write_timeout(&buf, TIMEOUT)?;
 
-    let response = receive_response(handle, TIMEOUT)?;
+    let response = receive_response(device, TIMEOUT)?;
     let response_view = crate::frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(AxdlError::UnexpectedResponse(
@@ -112,7 +99,7 @@ pub fn start_ram_download(handle: &mut DeviceHandle<rusb::GlobalContext>) -> Res
 }
 
 pub fn start_partition_absolute_32(
-    handle: &mut DeviceHandle<rusb::GlobalContext>,
+    device: &mut crate::transport::DynDevice,
     start_address: u32,
     partition_length: u32,
 ) -> Result<(), AxdlError> {
@@ -132,11 +119,9 @@ pub fn start_partition_absolute_32(
     }
     frame.finalize();
 
-    handle
-        .write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
-        .map_err(AxdlError::UsbSendError)?;
+    device.write_timeout(&buf, TIMEOUT)?;
 
-    let response = receive_response(handle, TIMEOUT)?;
+    let response = receive_response(device, TIMEOUT)?;
     let response_view = crate::frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(AxdlError::UnexpectedResponse(
@@ -147,7 +132,7 @@ pub fn start_partition_absolute_32(
 }
 
 pub fn start_partition_absolute(
-    handle: &mut DeviceHandle<rusb::GlobalContext>,
+    device: &mut crate::transport::DynDevice,
     start_address: u64,
     partition_length: u64,
 ) -> Result<(), AxdlError> {
@@ -167,11 +152,9 @@ pub fn start_partition_absolute(
     }
     frame.finalize();
 
-    handle
-        .write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
-        .map_err(AxdlError::UsbSendError)?;
+    device.write_timeout(&buf, TIMEOUT)?;
 
-    let response = receive_response(handle, TIMEOUT)?;
+    let response = receive_response(device, TIMEOUT)?;
     let response_view = crate::frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(AxdlError::UnexpectedResponse(
@@ -182,7 +165,7 @@ pub fn start_partition_absolute(
 }
 
 pub fn start_partition_id(
-    handle: &mut DeviceHandle<rusb::GlobalContext>,
+    device: &mut crate::transport::DynDevice,
     partition_name: &str,
     total_length: u64,
 ) -> Result<(), AxdlError> {
@@ -207,11 +190,9 @@ pub fn start_partition_id(
     }
     frame.finalize();
 
-    handle
-        .write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
-        .map_err(AxdlError::UsbSendError)?;
+    device.write_timeout(&buf, TIMEOUT)?;
 
-    let response = receive_response(handle, TIMEOUT)?;
+    let response = receive_response(device, TIMEOUT)?;
     let response_view = crate::frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(AxdlError::UnexpectedResponse(
@@ -222,7 +203,7 @@ pub fn start_partition_id(
 }
 
 pub fn start_block(
-    handle: &mut DeviceHandle<rusb::GlobalContext>,
+    device: &mut crate::transport::DynDevice,
     block_size: u16,
 ) -> Result<(), AxdlError> {
     tracing::debug!("start_block: block_size={}", block_size);
@@ -236,11 +217,9 @@ pub fn start_block(
     }
     frame.finalize();
 
-    handle
-        .write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
-        .map_err(AxdlError::UsbSendError)?;
+    device.write_timeout(&buf, TIMEOUT)?;
 
-    let response = receive_response(handle, TIMEOUT)?;
+    let response = receive_response(device, TIMEOUT)?;
     let response_view = crate::frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(AxdlError::UnexpectedResponse(
@@ -251,7 +230,7 @@ pub fn start_block(
 }
 
 pub fn end_partition(
-    handle: &mut DeviceHandle<rusb::GlobalContext>,
+    device: &mut crate::transport::DynDevice,
     timeout: Duration,
 ) -> Result<(), AxdlError> {
     tracing::debug!("end_partition");
@@ -261,11 +240,9 @@ pub fn end_partition(
     frame.set_command_response(0x0003); // End partition
     frame.finalize();
 
-    handle
-        .write_bulk(ENDPOINT_OUT, &buf, timeout)
-        .map_err(AxdlError::UsbSendError)?;
+    device.write_timeout(&buf, timeout)?;
 
-    let response = receive_response(handle, timeout)?;
+    let response = receive_response(device, timeout)?;
     let response_view = crate::frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(AxdlError::UnexpectedResponse(
@@ -275,7 +252,7 @@ pub fn end_partition(
     Ok(())
 }
 
-pub fn end_ram_download(handle: &mut DeviceHandle<rusb::GlobalContext>) -> Result<(), AxdlError> {
+pub fn end_ram_download(device: &mut crate::transport::DynDevice) -> Result<(), AxdlError> {
     tracing::debug!("end_ram_download");
     let mut buf = [0u8; crate::frame::MINIMUM_LENGTH];
     let mut frame = crate::frame::AxdlFrameViewMut::new(&mut buf);
@@ -283,11 +260,9 @@ pub fn end_ram_download(handle: &mut DeviceHandle<rusb::GlobalContext>) -> Resul
     frame.set_command_response(0x0004); // End RAM download
     frame.finalize();
 
-    handle
-        .write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
-        .map_err(AxdlError::UsbSendError)?;
+    device.write_timeout(&buf, TIMEOUT)?;
 
-    let response = receive_response(handle, TIMEOUT)?;
+    let response = receive_response(device, TIMEOUT)?;
     let response_view = crate::frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(AxdlError::UnexpectedResponse(
@@ -298,7 +273,7 @@ pub fn end_ram_download(handle: &mut DeviceHandle<rusb::GlobalContext>) -> Resul
 }
 
 pub fn set_partition_table(
-    handle: &mut DeviceHandle<rusb::GlobalContext>,
+    device: &mut crate::transport::DynDevice,
     partition_table: &crate::partition::PartitionTable,
 ) -> Result<(), AxdlError> {
     tracing::debug!("set_partition_table: {:?}", partition_table);
@@ -318,11 +293,9 @@ pub fn set_partition_table(
     }
     frame.finalize();
 
-    handle
-        .write_bulk(ENDPOINT_OUT, &buf, TIMEOUT)
-        .map_err(AxdlError::UsbSendError)?;
+    device.write_timeout(&buf, TIMEOUT)?;
 
-    let response = receive_response(handle, TIMEOUT)?;
+    let response = receive_response(device, TIMEOUT)?;
     let response_view = crate::frame::AxdlFrameView::new(&response);
     if response_view.command_response() != Some(0x0080) {
         return Err(AxdlError::UnexpectedResponse(
@@ -333,7 +306,7 @@ pub fn set_partition_table(
 }
 
 pub fn write_image<R: std::io::Read>(
-    handle: &mut DeviceHandle<rusb::GlobalContext>,
+    device: &mut crate::transport::DynDevice,
     reader: &mut R,
     chunk_size: usize,
     image_name: &str,
@@ -356,11 +329,9 @@ pub fn write_image<R: std::io::Read>(
             break;
         }
         let chunk = &buffer[..bytes_read];
-        start_block(handle, chunk.len() as u16)?;
-        handle
-            .write_bulk(ENDPOINT_OUT, chunk, Duration::from_secs(60))
-            .map_err(AxdlError::UsbSendError)?;
-        let response = receive_response(handle, Duration::from_secs(60))?;
+        start_block(device, chunk.len() as u16)?;
+        device.write_timeout(chunk, Duration::from_secs(60))?;
+        let response = receive_response(device, Duration::from_secs(60))?;
         let response_view = crate::frame::AxdlFrameView::new(&response);
         if response_view.command_response() != Some(0x0080) {
             return Err(AxdlError::UnexpectedResponse(

@@ -13,6 +13,7 @@ rusb = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde-xml-rs = { workspace = true }
 serde_bytes = { workspace = true }
+serialport = { workspace = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }

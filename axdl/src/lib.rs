@@ -18,15 +18,14 @@ use std::time::Duration;
 pub mod communication;
 pub mod frame;
 pub mod partition;
+pub mod transport;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AxdlError {
     #[error("USB error: {0}")]
     UsbError(rusb::Error),
-    #[error("USB send error: {0}")]
-    UsbSendError(rusb::Error),
-    #[error("USB receive error: {0}")]
-    UsbReceiveError(rusb::Error),
+    #[error("Serial communication error: {0}")]
+    SerialError(serialport::Error),
     #[error("Invalid frame received")]
     InvalidFrame,
     #[error("Failed to decode handshake: {0}")]
@@ -53,8 +52,6 @@ pub enum AxdlError {
 
 #[derive(Debug)]
 pub struct DownloadConfig {
-    pub wait_for_device: bool,
-    pub wait_for_device_timeout_secs: Option<u64>,
     pub exclude_rootfs: bool,
 }
 
@@ -71,8 +68,52 @@ pub trait DownloadProgress {
     }
 }
 
+// pub fn wait_for_device<R: std::io::Read + std::io::Seek, Progress: DownloadProgress>(
+//     image_reader: &mut R,
+//     config: &DownloadConfig,
+//     progress: &mut Progress,
+// ) -> Result<(), AxdlError> {
+
+//     if config.wait_for_device {
+//         if let Some(timeout) = config.wait_for_device_timeout_secs {
+//             tracing::debug!(
+//                 "Waiting for the device to be ready (timeout={}s)...",
+//                 timeout
+//             );
+//             progress.report_progress(
+//                 &format!("Waiting for the device to be ready (timeout={}s)", timeout),
+//                 None,
+//             );
+//         } else {
+//             tracing::debug!("Waiting for the device to be ready...");
+//             progress.report_progress("Waiting for the device to be ready", None);
+//         }
+//     }
+
+//     let wait_start = std::time::Instant::now();
+//     let mut handle = loop {
+//         match rusb::open_device_with_vid_pid(communication::VENDOR_ID, communication::PRODUCT_ID) {
+//             Some(handle) => {
+//                 break handle;
+//             }
+//             None => {}
+//         }
+//         if config.wait_for_device {
+//             if let Some(timeout) = config.wait_for_device_timeout_secs {
+//                 if wait_start.elapsed() > Duration::from_secs(timeout) {
+//                     return Err(AxdlError::DeviceTimeout);
+//                 }
+//             }
+//             std::thread::sleep(Duration::from_secs(1));
+//         } else {
+//             return Err(AxdlError::DeviceNotFound);
+//         }
+//     };
+// }
+
 pub fn download_image<R: std::io::Read + std::io::Seek, Progress: DownloadProgress>(
     image_reader: &mut R,
+    device: &mut transport::DynDevice,
     config: &DownloadConfig,
     progress: &mut Progress,
 ) -> Result<(), AxdlError> {
@@ -107,53 +148,12 @@ pub fn download_image<R: std::io::Read + std::io::Seek, Progress: DownloadProgre
     let partition_table = project.partition_table();
     tracing::debug!("{:#?}", partition_table);
 
-    if config.wait_for_device {
-        if let Some(timeout) = config.wait_for_device_timeout_secs {
-            tracing::debug!(
-                "Waiting for the device to be ready (timeout={}s)...",
-                timeout
-            );
-            progress.report_progress(
-                &format!("Waiting for the device to be ready (timeout={}s)", timeout),
-                None,
-            );
-        } else {
-            tracing::debug!("Waiting for the device to be ready...");
-            progress.report_progress("Waiting for the device to be ready", None);
-        }
-    }
-
-    let wait_start = std::time::Instant::now();
-    let mut handle = loop {
-        match rusb::open_device_with_vid_pid(communication::VENDOR_ID, communication::PRODUCT_ID) {
-            Some(handle) => {
-                break handle;
-            }
-            None => {}
-        }
-        if config.wait_for_device {
-            if let Some(timeout) = config.wait_for_device_timeout_secs {
-                if wait_start.elapsed() > Duration::from_secs(timeout) {
-                    return Err(AxdlError::DeviceTimeout);
-                }
-            }
-            std::thread::sleep(Duration::from_secs(1));
-        } else {
-            return Err(AxdlError::DeviceNotFound);
-        }
-    };
-
     tracing::debug!("Starting the download process...");
     progress.report_progress("Start download", None);
 
-    if let Err(e) = communication::claim_interface(&mut handle, 0) {
-        tracing::error!("failed to claim interface: {}", e);
-        return Err(AxdlError::UsbError(e));
-    }
-
     // Check if romcode is running on the device.
     progress.report_progress("Handshaking with the device", None);
-    communication::wait_handshake(&mut handle, "romcode")?;
+    communication::wait_handshake(device, "romcode")?;
 
     progress.report_progress("Downloading the flash downloaders", None);
     // Find the FDL1 image and download it.
@@ -174,15 +174,15 @@ pub fn download_image<R: std::io::Read + std::io::Seek, Progress: DownloadProgre
     };
 
     // Start the RAM download (FDL1)
-    communication::start_ram_download(&mut handle)?;
+    communication::start_ram_download(device)?;
     let fdl1_image_size = fdl1.size();
     communication::start_partition_absolute_32(
-        &mut handle,
+        device,
         *fdl1_address as u32,
         fdl1_image_size as u32,
     )?;
     communication::write_image(
-        &mut handle,
+        device,
         &mut fdl1,
         1000,
         "FDL1",
@@ -191,10 +191,10 @@ pub fn download_image<R: std::io::Read + std::io::Seek, Progress: DownloadProgre
         progress,
     )?;
     drop(fdl1);
-    communication::end_partition(&mut handle, communication::TIMEOUT)?;
-    communication::end_ram_download(&mut handle)?;
+    communication::end_partition(device, communication::TIMEOUT)?;
+    communication::end_ram_download(device)?;
 
-    communication::wait_handshake(&mut handle, "fdl1")?;
+    communication::wait_handshake(device, "fdl1")?;
 
     // Find the FDL2 image and download it.
     let fdl2_image = project
@@ -213,12 +213,12 @@ pub fn download_image<R: std::io::Read + std::io::Seek, Progress: DownloadProgre
         _ => return Err(AxdlError::ImageError("FDL2 block is not absolute".into())),
     };
     // Start the RAM download (FDL2)
-    communication::start_ram_download(&mut handle)?;
+    communication::start_ram_download(device)?;
 
     let fdl2_image_size = fdl2.size();
-    communication::start_partition_absolute(&mut handle, *fdl2_address, fdl2_image_size)?;
+    communication::start_partition_absolute(device, *fdl2_address, fdl2_image_size)?;
     communication::write_image(
-        &mut handle,
+        device,
         &mut fdl2,
         1000,
         "FDL2",
@@ -227,12 +227,12 @@ pub fn download_image<R: std::io::Read + std::io::Seek, Progress: DownloadProgre
         progress,
     )?;
     drop(fdl2);
-    communication::end_partition(&mut handle, communication::TIMEOUT)?;
-    communication::end_ram_download(&mut handle)?;
+    communication::end_partition(device, communication::TIMEOUT)?;
+    communication::end_ram_download(device)?;
 
     // Download the partition table.
     progress.report_progress("Downloading the partition table", None);
-    communication::set_partition_table(&mut handle, &partition_table)?;
+    communication::set_partition_table(device, &partition_table)?;
 
     // Download all of "CODE" images
     for image in project.images().iter().filter(|image| {
@@ -265,9 +265,9 @@ pub fn download_image<R: std::io::Read + std::io::Seek, Progress: DownloadProgre
             }
         };
         let image_data_size = image_data.size();
-        communication::start_partition_id(&mut handle, &image_id, image_data_size)?;
+        communication::start_partition_id(device, &image_id, image_data_size)?;
         communication::write_image(
-            &mut handle,
+            device,
             &mut image_data,
             48000,
             image.name(),
@@ -275,7 +275,7 @@ pub fn download_image<R: std::io::Read + std::io::Seek, Progress: DownloadProgre
             Some(100),
             progress,
         )?;
-        communication::end_partition(&mut handle, Duration::from_secs(60))?;
+        communication::end_partition(device, Duration::from_secs(60))?;
     }
     tracing::info!("Done");
     Ok(())
