@@ -44,13 +44,13 @@ cargo build
 M5Stack Module LLMの場合、BOOTボタンを押し続けながらUSBケーブルをデバイスに接続します。
 
 ```shell
-cargo run -- --file /path/to/image.axp --wait-device
+cargo run --bin axdl-cli -- --file /path/to/image.axp --wait-for-device
 ```
 
 rootfsを書き込みたくない場合は、`--exclude-rootfs`オプションを指定します。
 
 ```shell
-cargo run -- --file /path/to/image.axp --wait-device --exclude-rootfs
+cargo run --bin axdl-cli -- --file /path/to/image.axp --wait-for-device --exclude-rootfs
 ```
 
 ## ライセンス

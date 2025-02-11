@@ -23,7 +23,6 @@ sudo cp 99-axdl.rules /etc/udev/rules.d/
 sudo udevadm control --reload
 ```
 
-
 ## Build
 
 Before building the project, install the Rust toolchain via rustup.
@@ -42,16 +41,16 @@ cargo build
 ## Usage
 
 To burn a *.axp image, run the command below and plug the Axera SoC device with download mode.
-For M5Stack Module LLM, kepp press the BOOT button and plug the USB cable into the device.
+For M5Stack Module LLM, keep press the BOOT button and plug the USB cable into the device.
 
 ```shell
-cargo run -- --file /path/to/image.axp --wait-device
+cargo run --bin axdl-cli -- --file /path/to/image.axp --wait-for-device
 ```
 
 If you don't want to burn the rootfs, specify `--exclude-rootfs` option.
 
 ```shell
-cargo run -- --file /path/to/image.axp --wait-device --exclude-rootfs
+cargo run --bin axdl-cli -- --file /path/to/image.axp --wait-for-device --exclude-rootfs
 ```
 
 ## License
