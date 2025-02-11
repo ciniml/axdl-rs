@@ -3,6 +3,11 @@ name = "axdl"
 version = "0.1.0"
 edition = "2021"
 license = "Apache-2.0"
+description = "Unofficial implementation of Axera SoC image download protocol"
+repository = "https://github.com/ciniml/axdl-rs"
+keywords = ["protocol", "axera"]
+categories = ["protocols"]
+readme = "../README.md"
 
 [dependencies]
 bincode = { workspace = true }
