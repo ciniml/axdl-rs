@@ -6,7 +6,7 @@ license = "Apache-2.0"
 description = "Unofficial implementation of Axera SoC image download protocol"
 repository = "https://github.com/ciniml/axdl-rs"
 keywords = ["protocol", "axera"]
-categories = ["protocols"]
+categories = ["command-line-utilities"]
 readme = "../README.md"
 
 [dependencies]
