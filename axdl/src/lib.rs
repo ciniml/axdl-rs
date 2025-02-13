@@ -22,8 +22,10 @@ pub mod transport;
 
 #[derive(Debug, thiserror::Error)]
 pub enum AxdlError {
+    #[cfg(feature = "usb")]
     #[error("USB error: {0}")]
-    UsbError(rusb::Error),
+    UsbError(rusb::Error),    
+    #[cfg(feature = "serial")]
     #[error("Serial communication error: {0}")]
     SerialError(serialport::Error),
     #[error("Invalid frame received")]

@@ -13,7 +13,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use rusb::{DeviceHandle, UsbContext};
 use std::time::Duration;
 
 use crate::AxdlError;
@@ -351,13 +350,5 @@ pub fn write_image<R: std::io::Read>(
             }
         }
     }
-    Ok(())
-}
-
-pub(crate) fn claim_interface<T: UsbContext>(
-    handle: &mut DeviceHandle<T>,
-    interface: u8,
-) -> rusb::Result<()> {
-    handle.claim_interface(interface)?;
     Ok(())
 }

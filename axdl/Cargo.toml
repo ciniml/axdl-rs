@@ -9,20 +9,29 @@ keywords = ["protocol", "axera"]
 categories = ["command-line-utilities"]
 readme = "../README.md"
 
+[features]
+
+default = ["usb", "serial"]
+
+usb = ["dep:rusb"]
+webusb = ["dep:webusb-web"]
+serial = ["dep:serialport"]
+
 [dependencies]
 bincode = { workspace = true }
 byteorder = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 hex = { workspace = true, features = ["serde"] }
-rusb = { workspace = true }
+rusb = { workspace = true, optional = true}
 serde = { workspace = true, features = ["derive"] }
 serde-xml-rs = { workspace = true }
 serde_bytes = { workspace = true }
-serialport = { workspace = true }
+serialport = { workspace = true, optional = true}
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-zip = { workspace = true }
+zip = { workspace = true, default-features = false, features = ["deflate"] }
+webusb-web = { workspace = true, optional = true }
 
 [dev-dependencies]
 hex-literal = { workspace = true }

@@ -1,0 +1,31 @@
+[package]
+name = "axdl-gui"
+version = "0.1.0"
+edition = "2021"
+license = "Apache-2.0"
+description = "Unofficial GUI image download tool for Axera SoCs"
+repository = "https://github.com/ciniml/axdl-gui"  # Updated repository link
+keywords = ["gui", "tool", "axera"]  # Updated keywords to reflect GUI
+categories = ["graphical-user-interfaces"]  # Updated category for GUI
+readme = "../README.md"
+
+[dependencies]
+axdl = { path = "../axdl", version = "0.1.0", default-features = false }
+
+anyhow = { workspace = true, features = ["backtrace"] }
+clap = { workspace = true, features = ["derive"] }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+indicatif = { workspace = true }
+slint = { version = "1.8.0" }
+getrandom = { version = "0.2.15", features = ["js"] }
+
+[build-dependencies]
+slint-build = "1.8.0"
+
+[target.'cfg(target_arch = "wasm32")'.dependencies]
+wasm-bindgen = { workspace = true }
+
+[lib]
+path = "src/main.rs"
+crate-type = ["cdylib", "rlib"]

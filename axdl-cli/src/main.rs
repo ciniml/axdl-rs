@@ -149,20 +149,20 @@ fn main() -> anyhow::Result<()> {
     let mut device = loop {
         let device: Option<DynDevice> = match args.transport {
             Transport::Serial => {
-                axdl::transport::SerialTransport::list_devices()?
+                axdl::transport::serial::SerialTransport::list_devices()?
                     .iter()
                     .next()
-                    .map(|path| axdl::transport::SerialTransport::open_device(path).ok())
+                    .map(|path| axdl::transport::serial::SerialTransport::open_device(path).ok())
                     .flatten()
                     .map(|device| {
                         let device: DynDevice = Box::new(device);
                         device
                     })
             }
-            Transport::Usb => axdl::transport::UsbTransport::list_devices()?
+            Transport::Usb => axdl::transport::usb::UsbTransport::list_devices()?
                 .iter()
                 .next()
-                .map(|path| axdl::transport::UsbTransport::open_device(path).ok())
+                .map(|path| axdl::transport::usb::UsbTransport::open_device(path).ok())
                 .flatten()
                 .map(|device| {
                     let device: DynDevice = Box::new(device);
