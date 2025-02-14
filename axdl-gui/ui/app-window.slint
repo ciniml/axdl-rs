@@ -1,17 +1,25 @@
 import { Button, VerticalBox } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
-    in-out property <int> counter: 42;
-    callback request-increase-value();
+    in-out property <bool> device_opened;
+    callback open-usb-device();
+    callback open-serial-device();
     VerticalBox {
         Text {
-            text: "Counter: \{root.counter}";
+            text: "Device: \{root.device_opened ? "Opened" : "Closed"}";
         }
 
         Button {
-            text: "Increase value";
+            text: "Open Device";
             clicked => {
-                root.request-increase-value();
+                root.open-usb-device();
+            }
+        }
+
+        Button {
+            text: "Open Serial Device";
+            clicked => {
+                root.open-serial-device();
             }
         }
     }

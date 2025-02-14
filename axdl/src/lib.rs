@@ -28,6 +28,12 @@ pub enum AxdlError {
     #[cfg(feature = "serial")]
     #[error("Serial communication error: {0}")]
     SerialError(serialport::Error),
+    #[cfg(feature = "webusb")]
+    #[error("WebUSB error: {0}")]
+    WebUsbError(webusb_web::Error),
+    #[cfg(feature = "webusb")]
+    #[error("WebSerial error: {0:?}")]
+    WebSerialError(js_sys::wasm_bindgen::JsValue),
     #[error("Invalid frame received")]
     InvalidFrame,
     #[error("Failed to decode handshake: {0}")]
@@ -50,6 +56,8 @@ pub enum AxdlError {
     DeviceTimeout,
     #[error("User cancelled the operation")]
     UserCancelled,
+    #[error("Unsupported: {0}")]
+    Unsupported(String),
 }
 
 #[derive(Debug)]

@@ -10,7 +10,7 @@ categories = ["graphical-user-interfaces"]  # Updated category for GUI
 readme = "../README.md"
 
 [dependencies]
-axdl = { path = "../axdl", version = "0.1.0", default-features = false }
+axdl = { path = "../axdl", version = "0.1.0", default-features = false, features = ["webusb", "webserial"] }
 
 anyhow = { workspace = true, features = ["backtrace"] }
 clap = { workspace = true, features = ["derive"] }
@@ -19,6 +19,13 @@ tracing-subscriber = { workspace = true, features = ["env-filter"] }
 indicatif = { workspace = true }
 slint = { version = "1.8.0" }
 getrandom = { version = "0.2.15", features = ["js"] }
+
+webusb-web = { workspace = true }
+wasm-bindgen-futures = { workspace = true}
+web-sys = { workspace = true, features = ["Usb", "UsbDevice", "UsbDeviceFilter", "Serial", "SerialPort", "SerialPortInfo", "SerialOptions", "SerialPortRequestOptions"] }
+js-sys = { workspace = true }
+
+tracing-wasm = { workspace = true }
 
 [build-dependencies]
 slint-build = "1.8.0"

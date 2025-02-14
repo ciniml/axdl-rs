@@ -6,8 +6,10 @@ use crate::AxdlError;
 pub mod usb;
 #[cfg(feature = "serial")]
 pub mod serial;
-//#[cfg(feature = "webusb")]
-//pub mod webusb;
+#[cfg(feature = "webusb")]
+pub mod webusb;
+#[cfg(feature = "webserial")]
+pub mod webserial;
 
 /// Device trait for reading and writing data.
 pub trait Device {
@@ -17,10 +19,30 @@ pub trait Device {
 
 /// Transport trait for listing devices and opening devices.
 pub trait Transport {
-    type DevicePath;
+    type DeviceId;
     type DeviceType: Device;
-    fn list_devices() -> Result<Vec<Self::DevicePath>, AxdlError>;
-    fn open_device(path: &Self::DevicePath) -> Result<Self::DeviceType, AxdlError>;
+    fn list_devices() -> Result<Vec<Self::DeviceId>, AxdlError>;
+    fn open_device(path: &Self::DeviceId) -> Result<Self::DeviceType, AxdlError>;
 }
 
 pub type DynDevice = Box<dyn Device>;
+
+#[cfg(feature = "webusb")]
+mod async_transport {
+    use crate::AxdlError;
+
+    pub trait AsyncDevice {
+        fn read(&mut self, buf: &mut [u8]) -> impl std::future::Future<Output = Result<usize, AxdlError>>;
+        fn write(&mut self, buf: &[u8]) -> impl std::future::Future<Output = Result<usize, AxdlError>>;
+    }
+
+    pub trait AsyncTransport {
+        type DeviceId;
+        type DeviceType: AsyncDevice;
+        fn list_devices() -> impl std::future::Future<Output = Result<Vec<Self::DeviceId>, AxdlError>>;
+        fn open_device(path: &Self::DeviceId) -> impl std::future::Future<Output = Result<Self::DeviceType, AxdlError>>;
+    }
+}
+
+#[cfg(feature = "webusb")]
+pub use async_transport::*;

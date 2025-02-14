@@ -17,10 +17,16 @@ serde_bytes = "0.11.15"
 thiserror = "2.0.11"
 tracing = "0.1.41"
 tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+tracing-wasm = "0.2.1"
+
 zip = { version = "2.2.2", default-features = false, features = ["deflate"] }
 hex-literal = "0.4.1"
 indicatif = "0.17.11"
 serialport = "4.7.0"
 wasm-bindgen = "0.2.100"
 webusb-web = { version = "0.3.0" }
-uuid = { version = "1.13.1" }
+wasm-bindgen-futures = "0.4.50"
+web-sys = "0.3.77"
+js-sys = "0.3.77"
+pin-utils = "0.1.0"
+wasm-streams = "0.4.2"

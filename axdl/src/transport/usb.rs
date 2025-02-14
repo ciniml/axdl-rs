@@ -34,10 +34,10 @@ impl std::fmt::Display for UsbDevicePath {
 }
 
 impl Transport for UsbTransport {
-    type DevicePath = UsbDevicePath;
+    type DeviceId = UsbDevicePath;
     type DeviceType = UsbDevice;
 
-    fn list_devices() -> Result<Vec<Self::DevicePath>, AxdlError> {
+    fn list_devices() -> Result<Vec<Self::DeviceId>, AxdlError> {
         let list = rusb::devices()
             .map_err(AxdlError::UsbError)?
             .iter()
@@ -60,7 +60,7 @@ impl Transport for UsbTransport {
             .collect();
         Ok(list)
     }
-    fn open_device(path: &Self::DevicePath) -> Result<Self::DeviceType, AxdlError> {
+    fn open_device(path: &Self::DeviceId) -> Result<Self::DeviceType, AxdlError> {
         let device = rusb::devices()
             .map_err(AxdlError::UsbError)?
             .iter()

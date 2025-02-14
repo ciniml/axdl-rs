@@ -15,12 +15,10 @@
 
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
-use std::time::Duration;
+use std::{cell::RefCell, rc::Rc, time::Duration};
 
 use axdl::{
-    download_image,
-    transport::{DynDevice, Transport as _},
-    DownloadConfig, DownloadProgress,
+    download_image, transport::{AsyncTransport, DynDevice, Transport as _}, AxdlError, DownloadConfig, DownloadProgress
 };
 
 slint::include_modules!();
@@ -71,25 +69,82 @@ impl axdl::DownloadProgress for CliProgress {
 }
 
 fn gui_main() -> Result<(), Box<dyn std::error::Error>> {
-    tracing_subscriber::fmt()
-        .with_env_filter(
-            tracing_subscriber::EnvFilter::builder()
-                .with_default_directive(tracing::level_filters::LevelFilter::INFO.into())
-                .from_env_lossy(),
-        )
-        .with_file(true)
-        .with_line_number(true)
-        .init();
+    // tracing_subscriber::fmt()
+    //     .with_env_filter(
+    //         tracing_subscriber::EnvFilter::builder()
+    //             .with_default_directive(tracing::level_filters::LevelFilter::INFO.into())
+    //             .from_env_lossy(),
+    //     )
+    //     .with_file(true)
+    //     .with_line_number(true)
+    //     .init();
+    tracing_wasm::set_as_global_default();
+
+    let usb = Rc::new(webusb_web::Usb::new().unwrap());
+    let usb_device: Rc<RefCell<Option<webusb_web::OpenUsbDevice>>> = Rc::new(RefCell::new(None));
+    let serial = Rc::new(axdl::transport::webserial::new_serial().unwrap());
+    let serial_device = Rc::new(RefCell::new(None));
 
     let ui = AppWindow::new()?;
 
-    ui.on_request_increase_value({
+    {
+        let usb = usb.clone();
+        let usb_device = usb_device.clone();
         let ui_handle = ui.as_weak();
-        move || {
+        ui.on_open_usb_device(move || {
+            let usb = usb.clone();
+            let usb_device = usb_device.clone();
             let ui = ui_handle.unwrap();
-            ui.set_counter(ui.get_counter() + 1);
-        }
-    });
+            slint::spawn_local(async move {
+                let result: Result<(), Box<dyn std::error::Error>> = async {
+                    let device = usb.request_device([axdl::transport::webusb::axdl_device_filter()]).await?;
+                    tracing::info!("Device selected: {:?}", device);
+                    let open_device = device.open().await?;
+                    tracing::info!("Device opened: {:?}", open_device);
+                    usb_device.replace(Some(open_device));
+                    ui.set_device_opened(true);
+                    Ok(())
+                }.await;
+
+                if let Err(e) = result {
+                    tracing::error!("Failed to open device: {:?}", e);
+                    ui.set_device_opened(false);
+                }
+            });
+        });
+    }
+
+    {
+        let serial = serial.clone();
+        let serial_device = serial_device.clone();
+        let ui_handle = ui.as_weak();
+        ui.on_open_serial_device(move || {
+            let serial = serial.clone();
+            let serial_device = serial_device.clone();
+            let ui = ui_handle.unwrap();
+            slint::spawn_local(async move {
+                let result: Result<(), Box<dyn std::error::Error>> = async {
+                    let options = web_sys::SerialPortRequestOptions::new();
+                    options.set_filters(&js_sys::Array::of1(&axdl::transport::webserial::axdl_device_filter()));
+                    let promise = serial.request_port_with_options(&options);
+                    let device =  web_sys::SerialPort::from(wasm_bindgen_futures::JsFuture::from(promise).await
+                        .map_err(AxdlError::WebSerialError)?);
+                    tracing::info!("Device selected: {:?}", device);
+                    wasm_bindgen_futures::JsFuture::from(device.open(&web_sys::SerialOptions::new(115200))).await
+                        .map_err(AxdlError::WebSerialError)?;
+                    tracing::info!("Device opened: {:?}", device);
+                    serial_device.replace(Some(axdl::transport::webserial::WebSerialDevice::new(device)));
+                    ui.set_device_opened(true);
+                    Ok(())
+                }.await;
+
+                if let Err(e) = result {
+                    tracing::error!("Failed to open device: {:?}", e);
+                    ui.set_device_opened(false);
+                }
+            });
+        });
+    }
 
     ui.run()?;
 

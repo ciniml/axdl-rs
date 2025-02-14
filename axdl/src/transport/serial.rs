@@ -28,10 +28,10 @@ impl std::fmt::Display for SerialDevicePath {
 }
 
 impl Transport for SerialTransport {
-    type DevicePath = SerialDevicePath;
+    type DeviceId = SerialDevicePath;
     type DeviceType = SerialDevice;
 
-    fn list_devices() -> Result<Vec<Self::DevicePath>, AxdlError> {
+    fn list_devices() -> Result<Vec<Self::DeviceId>, AxdlError> {
         let list = serialport::available_ports()
             .map_err(AxdlError::SerialError)?
             .iter()
@@ -52,7 +52,7 @@ impl Transport for SerialTransport {
             .collect();
         Ok(list)
     }
-    fn open_device(path: &Self::DevicePath) -> Result<Self::DeviceType, AxdlError> {
+    fn open_device(path: &Self::DeviceId) -> Result<Self::DeviceType, AxdlError> {
         let port = serialport::new(&path.port_name, 115200)
             .open()
             .map_err(AxdlError::SerialError)?;
