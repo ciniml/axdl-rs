@@ -1,5 +1,5 @@
-use std::time::Duration;
 use crate::AxdlError;
+use std::time::Duration;
 
 use super::{Device, Transport};
 
@@ -35,19 +35,17 @@ impl Transport for SerialTransport {
         let list = serialport::available_ports()
             .map_err(AxdlError::SerialError)?
             .iter()
-            .filter_map(|port_info| {
-                match &port_info.port_type {
-                    serialport::SerialPortType::UsbPort(usb) => {
-                        if usb.vid == VENDOR_ID && usb.pid == PRODUCT_ID {
-                            Some(SerialDevicePath {
-                                port_name: port_info.port_name.clone(),
-                            })
-                        } else {
-                            None
-                        }
+            .filter_map(|port_info| match &port_info.port_type {
+                serialport::SerialPortType::UsbPort(usb) => {
+                    if usb.vid == VENDOR_ID && usb.pid == PRODUCT_ID {
+                        Some(SerialDevicePath {
+                            port_name: port_info.port_name.clone(),
+                        })
+                    } else {
+                        None
                     }
-                    _ => None,
                 }
+                _ => None,
             })
             .collect();
         Ok(list)
@@ -83,4 +81,3 @@ impl Device for SerialDevice {
             .map_err(|e| AxdlError::IoError("write error".into(), e))
     }
 }
-

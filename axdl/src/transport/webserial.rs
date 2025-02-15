@@ -13,7 +13,8 @@ pub const ENDPOINT_OUT: u8 = 0x01;
 pub const ENDPOINT_IN: u8 = 0x81;
 
 pub fn new_serial() -> Result<web_sys::Serial, AxdlError> {
-    web_sys::window().map(|window| window.navigator().serial())
+    web_sys::window()
+        .map(|window| window.navigator().serial())
         .ok_or(AxdlError::Unsupported("WebSerial".to_string()))
 }
 
@@ -32,14 +33,14 @@ pub struct WebSerialDevice {
 }
 
 impl WebSerialDevice {
-    pub fn new(port: web_sys::SerialPort) -> Result<Self, AxdlError> {
+    pub fn new(port: web_sys::SerialPort) -> Self {
         let read_buffer = Vec::new();
         let read_position = 0;
-        Ok(Self {
+        Self {
             port,
             read_buffer,
             read_position,
-        })
+        }
     }
 }
 
@@ -63,7 +64,7 @@ impl AsyncDevice for WebSerialDevice {
                 }
             }
         }
-        
+
         let bytes_remaining = self.read_buffer.len() - self.read_position;
         if bytes_remaining == 0 {
             return Ok(0);
@@ -73,7 +74,9 @@ impl AsyncDevice for WebSerialDevice {
             self.read_buffer.clear();
             Ok(bytes_remaining)
         } else {
-            buf.copy_from_slice(&self.read_buffer[self.read_position..self.read_position + buf.len()]);
+            buf.copy_from_slice(
+                &self.read_buffer[self.read_position..self.read_position + buf.len()],
+            );
             self.read_position += buf.len();
             Ok(buf.len())
         }
@@ -84,9 +87,10 @@ impl AsyncDevice for WebSerialDevice {
         let mut stream = WritableStream::from_raw(self.port.writable());
         let writer = stream.get_writer();
         pin_utils::pin_mut!(writer);
-        writer.write(buffer.into()).await
+        writer
+            .write(buffer.into())
+            .await
             .map_err(AxdlError::WebSerialError)?;
         Ok(buf.len())
     }
-
 }

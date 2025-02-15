@@ -15,6 +15,8 @@
 
 use std::time::Duration;
 
+use transport::AsyncDevice;
+
 pub mod communication;
 pub mod frame;
 pub mod partition;
@@ -24,7 +26,7 @@ pub mod transport;
 pub enum AxdlError {
     #[cfg(feature = "usb")]
     #[error("USB error: {0}")]
-    UsbError(rusb::Error),    
+    UsbError(rusb::Error),
     #[cfg(feature = "serial")]
     #[error("Serial communication error: {0}")]
     SerialError(serialport::Error),
@@ -243,6 +245,177 @@ pub fn download_image<R: std::io::Read + std::io::Seek, Progress: DownloadProgre
             progress,
         )?;
         communication::end_partition(device, Duration::from_secs(60))?;
+    }
+    tracing::info!("Done");
+    Ok(())
+}
+
+
+pub async fn download_image_async<R: std::io::Read + std::io::Seek, D: AsyncDevice, Progress: DownloadProgress>(
+    image_reader: &mut R,
+    device: &mut D,
+    config: &DownloadConfig,
+    progress: &mut Progress,
+) -> Result<(), AxdlError> {
+    // Open the specified image file and find the configuration XML file.
+    let mut archive = zip::ZipArchive::new(image_reader).map_err(AxdlError::ImageZipError)?;
+    let mut config_string = None;
+
+    progress.report_progress("Loading the AXP image configuration", None);
+    // Load the axp image configuration.
+    let project = {
+        for i in 0..archive.len() {
+            let mut file = archive.by_index(i)?;
+            if file.name().ends_with(".xml") {
+                config_string = Some(String::new());
+                std::io::Read::read_to_string(&mut file, config_string.as_mut().unwrap()).map_err(
+                    |e| AxdlError::ImageError(format!("failed to read configuration file: {}", e)),
+                )?;
+                break;
+            }
+        }
+        let config_string = config_string.ok_or(AxdlError::ImageError(
+            "configuration file not found in the image".into(),
+        ))?;
+        let config: partition::deserialize::Config = serde_xml_rs::from_str(&config_string)
+            .map_err(|e| {
+                AxdlError::ImageError(format!("failed to parse the configuration file: {}", e))
+            })?;
+        partition::Project::from(config.project)
+    };
+
+    tracing::debug!("{:#?}", project);
+    let partition_table = project.partition_table();
+    tracing::debug!("{:#?}", partition_table);
+
+    tracing::debug!("Starting the download process...");
+    progress.report_progress("Start download", None);
+
+    // Check if romcode is running on the device.
+    progress.report_progress("Handshaking with the device", None);
+    communication::r#async::wait_handshake(device, "romcode").await?;
+
+    progress.report_progress("Downloading the flash downloaders", None);
+    // Find the FDL1 image and download it.
+    let fdl1_image = project
+        .images()
+        .iter()
+        .find(|image| image.name() == "FDL1")
+        .ok_or(AxdlError::ImageError("FDL1 image not found".into()))?;
+    let fdl1_image_file = fdl1_image.file().ok_or(AxdlError::ImageError(
+        "FDL1 image file not specified in the project".into(),
+    ))?;
+    let mut fdl1 = archive.by_name(fdl1_image_file).map_err(|e| {
+        AxdlError::ImageError(format!("FDL1 image was not found in the image file: {}", e))
+    })?;
+    let fdl1_address = match fdl1_image.block() {
+        partition::Block::Absolute(address) => address,
+        _ => return Err(AxdlError::ImageError("FDL1 block is not absolute".into())),
+    };
+
+    // Start the RAM download (FDL1)
+    communication::r#async::start_ram_download(device).await?;
+    let fdl1_image_size = fdl1.size();
+    communication::r#async::start_partition_absolute_32(
+        device,
+        *fdl1_address as u32,
+        fdl1_image_size as u32,
+    ).await?;
+    communication::r#async::write_image(
+        device,
+        &mut fdl1,
+        1000,
+        "FDL1",
+        fdl1_image_size as usize,
+        Some(100),
+        progress,
+    ).await?;
+    drop(fdl1);
+    communication::r#async::end_partition(device).await?;
+    communication::r#async::end_ram_download(device).await?;
+
+    communication::r#async::wait_handshake(device, "fdl1").await?;
+
+    // Find the FDL2 image and download it.
+    let fdl2_image = project
+        .images()
+        .iter()
+        .find(|image| image.name() == "FDL2")
+        .ok_or(AxdlError::ImageError("FDL2 image not found".into()))?;
+    let fdl2_image_file = fdl2_image.file().ok_or(AxdlError::ImageError(
+        "FDL2 image file not specified in the project".into(),
+    ))?;
+    let mut fdl2 = archive.by_name(fdl2_image_file).map_err(|e| {
+        AxdlError::ImageError(format!("FDL2 image was not found in the image file: {}", e))
+    })?;
+    let fdl2_address = match fdl2_image.block() {
+        partition::Block::Absolute(address) => address,
+        _ => return Err(AxdlError::ImageError("FDL2 block is not absolute".into())),
+    };
+    // Start the RAM download (FDL2)
+    communication::r#async::start_ram_download(device).await?;
+
+    let fdl2_image_size = fdl2.size();
+    communication::r#async::start_partition_absolute(device, *fdl2_address, fdl2_image_size).await?;
+    communication::r#async::write_image(
+        device,
+        &mut fdl2,
+        1000,
+        "FDL2",
+        fdl2_image_size as usize,
+        Some(100),
+        progress,
+    ).await?;
+    drop(fdl2);
+    communication::r#async::end_partition(device).await?;
+    communication::r#async::end_ram_download(device).await?;
+
+    // Download the partition table.
+    progress.report_progress("Downloading the partition table", None);
+    communication::r#async::set_partition_table(device, &partition_table).await?;
+
+    // Download all of "CODE" images
+    for image in project.images().iter().filter(|image| {
+        image.r#type() == partition::ImageType::Code
+            && (!config.exclude_rootfs || image.name() != "ROOTFS")
+    }) {
+        tracing::debug!("Downloading image: {}", image.name());
+        progress.report_progress(&format!("Downloading image {}", image.name()), None);
+
+        progress.check_is_cancelled()?;
+
+        let image_file_name = image.file().ok_or(AxdlError::ImageError(format!(
+            "image {} file not specified in the project",
+            image.name()
+        )))?;
+        let mut image_data = archive.by_name(&image_file_name).map_err(|e| {
+            AxdlError::ImageError(format!(
+                "image {} was not found in the archive: {}",
+                image.name(),
+                e
+            ))
+        })?;
+        let image_id = match image.block() {
+            partition::Block::Partition(id) => id,
+            _ => {
+                return Err(AxdlError::ImageError(format!(
+                    "image {} block is not partition",
+                    image.name()
+                )))
+            }
+        };
+        let image_data_size = image_data.size();
+        communication::r#async::start_partition_id(device, &image_id, image_data_size).await?;
+        communication::r#async::write_image(
+            device,
+            &mut image_data,
+            48000,
+            image.name(),
+            image_data_size as usize,
+            Some(100),
+            progress,
+        ).await?;
+        communication::r#async::end_partition(device).await?;
     }
     tracing::info!("Done");
     Ok(())

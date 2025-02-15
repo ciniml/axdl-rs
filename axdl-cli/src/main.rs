@@ -148,17 +148,15 @@ fn main() -> anyhow::Result<()> {
     let wait_start = std::time::Instant::now();
     let mut device = loop {
         let device: Option<DynDevice> = match args.transport {
-            Transport::Serial => {
-                axdl::transport::serial::SerialTransport::list_devices()?
-                    .iter()
-                    .next()
-                    .map(|path| axdl::transport::serial::SerialTransport::open_device(path).ok())
-                    .flatten()
-                    .map(|device| {
-                        let device: DynDevice = Box::new(device);
-                        device
-                    })
-            }
+            Transport::Serial => axdl::transport::serial::SerialTransport::list_devices()?
+                .iter()
+                .next()
+                .map(|path| axdl::transport::serial::SerialTransport::open_device(path).ok())
+                .flatten()
+                .map(|device| {
+                    let device: DynDevice = Box::new(device);
+                    device
+                }),
             Transport::Usb => axdl::transport::usb::UsbTransport::list_devices()?
                 .iter()
                 .next()

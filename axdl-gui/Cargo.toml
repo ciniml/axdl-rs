@@ -26,6 +26,7 @@ web-sys = { workspace = true, features = ["Usb", "UsbDevice", "UsbDeviceFilter",
 js-sys = { workspace = true }
 
 tracing-wasm = { workspace = true }
+rfd = { workspace = true }
 
 [build-dependencies]
 slint-build = "1.8.0"
