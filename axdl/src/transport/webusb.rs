@@ -9,7 +9,7 @@ use super::AsyncDevice;
 pub const VENDOR_ID: u16 = 0x32c9;
 pub const PRODUCT_ID: u16 = 0x1000;
 pub const ENDPOINT_OUT: u8 = 0x01;
-pub const ENDPOINT_IN: u8 = 0x81;
+pub const ENDPOINT_IN: u8 = 0x01;
 
 /// Returns a device filter for Axera devices.
 pub fn axdl_device_filter() -> webusb_web::UsbDeviceFilter {

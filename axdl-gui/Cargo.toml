@@ -22,11 +22,13 @@ getrandom = { version = "0.2.15", features = ["js"] }
 
 webusb-web = { workspace = true }
 wasm-bindgen-futures = { workspace = true}
-web-sys = { workspace = true, features = ["Usb", "UsbDevice", "UsbDeviceFilter", "Serial", "SerialPort", "SerialPortInfo", "SerialOptions", "SerialPortRequestOptions"] }
+web-sys = { workspace = true, features = ["Usb", "UsbDevice", "UsbDeviceFilter", "Serial", "SerialPort", "SerialPortInfo", "SerialOptions", "SerialPortRequestOptions", "Blob", "File", "FileReaderSync"] }
 js-sys = { workspace = true }
 
 tracing-wasm = { workspace = true }
-rfd = { workspace = true }
+rfd = { workspace = true, features = ["file-handle-inner"] }
+futures-io = { workspace = true }
+pin-project = { workspace = true }
 
 [build-dependencies]
 slint-build = "1.8.0"

@@ -87,6 +87,7 @@ impl AsyncDevice for WebSerialDevice {
         let mut stream = WritableStream::from_raw(self.port.writable());
         let writer = stream.get_writer();
         pin_utils::pin_mut!(writer);
+        tracing::debug!("webserial: write {} bytes", buffer.byte_length());
         writer
             .write(buffer.into())
             .await

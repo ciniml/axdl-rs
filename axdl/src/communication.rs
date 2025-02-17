@@ -413,9 +413,7 @@ pub mod r#async {
         Ok(buf)
     }
 
-    pub async fn start_ram_download<D: AsyncDevice>(
-        device: &mut D,
-    ) -> Result<(), AxdlError> {
+    pub async fn start_ram_download<D: AsyncDevice>(device: &mut D) -> Result<(), AxdlError> {
         tracing::debug!("start_ram_download");
         let mut buf = [0u8; crate::frame::MINIMUM_LENGTH];
         let mut frame = crate::frame::AxdlFrameViewMut::new(&mut buf);
@@ -643,7 +641,7 @@ pub mod r#async {
         Ok(())
     }
 
-    pub async fn write_image<D: AsyncDevice, R: std::io::Read>(
+    pub async fn write_image<D: AsyncDevice, R: futures_io::AsyncRead + Unpin>(
         device: &mut D,
         reader: &mut R,
         chunk_size: usize,
@@ -652,6 +650,8 @@ pub mod r#async {
         report_every: Option<usize>,
         progress: &mut impl crate::DownloadProgress,
     ) -> Result<(), AxdlError> {
+        use futures_util::io::AsyncReadExt;
+
         let mut buffer = Vec::with_capacity(chunk_size);
         buffer.resize(chunk_size, 0);
 
@@ -662,13 +662,20 @@ pub mod r#async {
 
             let bytes_read = reader
                 .read(&mut buffer)
+                .await
                 .map_err(|e| AxdlError::IoError("read error".to_string(), e))?;
             if bytes_read == 0 {
                 break;
             }
             let chunk = &buffer[..bytes_read];
             start_block(device, chunk.len() as u16).await?;
-            device.write(chunk).await?;
+            let bytes_written = device.write(chunk).await?;
+            if bytes_written != chunk.len() {
+                return Err(AxdlError::IoError(
+                    "write error".to_string(),
+                    std::io::Error::new(std::io::ErrorKind::Other, "short write for data packet"),
+                ));
+            }
             let response = receive_response(device).await?;
             let response_view = crate::frame::AxdlFrameView::new(&response);
             if response_view.command_response() != Some(0x0080) {
