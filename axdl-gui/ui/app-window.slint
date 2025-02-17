@@ -1,0 +1,95 @@
+import { Button, VerticalBox, HorizontalBox, ProgressIndicator, CheckBox, AboutSlint } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    in-out property <bool> serial_port_supported: false;
+    in-out property <bool> device_opened: false;
+    in-out property <bool> image_file_opened: false;
+    in-out property <string> image_file;
+    in-out property <bool> downloading: false;
+    in-out property <bool> exclude_rootfs: false;
+    in-out property <string> description;
+    in-out property <bool> show_progress;
+    in-out property <float> progress: -1.0;
+
+    callback open-usb-device();
+    callback open-serial-device();
+    callback open-image();
+    callback download();
+
+    public function set_progress(description:string, progress: float) {
+        root.description = description;
+        root.progress = progress;
+        root.show_progress = true;
+    }
+
+    public function clear_progress() {
+        root.show_progress = false;
+    }
+
+    VerticalBox {
+        HorizontalBox {
+            VerticalBox {
+                Text {
+                    text: "Device: \{root.device_opened ? "Opened" : "Closed"}";
+                }
+
+                Button {
+                    text: "Open Device";
+                    enabled: !root.downloading;
+                    clicked => {
+                        root.open-usb-device();
+                    }
+                }
+
+                if root.serial_port_supported: Button {
+                    text: "Open Serial Device";
+                    enabled: !root.downloading;
+                    clicked => {
+                        root.open-serial-device();
+                    }
+                }
+
+            }
+
+            VerticalBox {
+                Text {
+                    text: root.image_file;
+                }
+                Button {
+                    text: "Open Image";
+                    enabled: !root.downloading;
+                    clicked => {
+                        root.open-image();
+                    }
+                }
+                CheckBox {
+                    text: "Exclude rootfs";
+                    enabled: !root.downloading;
+                    checked <=> root.exclude_rootfs;
+                }
+            }
+
+            Button {
+                text: "Download";
+                enabled: root.device_opened && root.image_file_opened && !root.downloading;
+                clicked => {
+                    root.download();
+                }
+            }
+            AboutSlint {
+                width: 100px;
+            }
+        }
+        if root.show_progress: VerticalBox {
+            Text {
+                text: root.description;
+            }
+            ProgressIndicator {
+                visible: root.progress >= 0.0;
+                width: 100%;
+                height: 32px;
+                progress: root.progress;
+            }
+        }
+    }
+}

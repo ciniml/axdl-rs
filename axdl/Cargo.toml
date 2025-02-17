@@ -1,6 +1,6 @@
 [package]
 name = "axdl"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "Unofficial implementation of Axera SoC image download protocol"
@@ -9,20 +9,41 @@ keywords = ["protocol", "axera"]
 categories = ["command-line-utilities"]
 readme = "../README.md"
 
+[features]
+
+default = ["usb", "serial"]
+
+usb = ["dep:rusb"]
+web = ["async", "dep:wasm-bindgen-futures", "dep:web-sys", "dep:js-sys"]
+webusb = ["web", "dep:webusb-web", "web-sys/Usb", "web-sys/UsbDevice", "web-sys/UsbDeviceFilter"]
+webserial = ["web", "web-sys/Serial", "web-sys/SerialPort", "web-sys/SerialPortInfo", "web-sys/SerialPortFilter", "web-sys/SerialOptions", "web-sys/ReadableStream", "web-sys/WritableStream", "dep:wasm-streams"]
+serial = ["dep:serialport"]
+async = ["dep:async_zip", "dep:futures-io", "dep:futures-util", "dep:pin-project", "dep:pin-utils"]
+
 [dependencies]
 bincode = { workspace = true }
 byteorder = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 hex = { workspace = true, features = ["serde"] }
-rusb = { workspace = true }
+rusb = { workspace = true, optional = true }
 serde = { workspace = true, features = ["derive"] }
 serde-xml-rs = { workspace = true }
 serde_bytes = { workspace = true }
-serialport = { workspace = true }
+serialport = { workspace = true, optional = true }
 thiserror = { workspace = true }
 tracing = { workspace = true }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
-zip = { workspace = true }
+zip = { workspace = true, default-features = false, features = ["deflate"] }
+webusb-web = { workspace = true, optional = true }
+wasm-bindgen-futures = { workspace = true, optional = true }
+web-sys = { workspace = true, optional = true, features = ["Window", "Navigator"] }
+js-sys = { workspace = true, optional = true }
+pin-utils = { workspace = true, optional = true }
+wasm-streams = { workspace = true, optional = true}
+async_zip = { workspace = true, optional = true, default-features = false, features = ["full-wasm"] }
+futures-io = { workspace = true, optional = true }
+futures-util = { workspace = true, optional = true }
+pin-project = { workspace = true, optional = true}
 
 [dev-dependencies]
 hex-literal = { workspace = true }
