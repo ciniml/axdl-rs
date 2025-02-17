@@ -1,4 +1,4 @@
-import { Button, VerticalBox, HorizontalBox, ProgressIndicator, CheckBox } from "std-widgets.slint";
+import { Button, VerticalBox, HorizontalBox, ProgressIndicator, CheckBox, AboutSlint } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
     in-out property <bool> serial_port_supported: false;
@@ -75,6 +75,9 @@ export component AppWindow inherits Window {
                 clicked => {
                     root.download();
                 }
+            }
+            AboutSlint {
+                width: 100px;
             }
         }
         if root.show_progress: VerticalBox {
