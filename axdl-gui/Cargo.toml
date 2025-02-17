@@ -1,6 +1,6 @@
 [package]
 name = "axdl-gui"
-version = "0.1.0"
+version = "0.1.1"
 edition = "2021"
 license = "Apache-2.0"
 description = "Unofficial GUI image download tool for Axera SoCs"
@@ -10,7 +10,7 @@ categories = ["graphical-user-interfaces"]  # Updated category for GUI
 readme = "../README.md"
 
 [dependencies]
-axdl = { path = "../axdl", version = "0.1.0", default-features = false, features = ["webusb", "webserial"] }
+axdl = { path = "../axdl", version = "0.1.1", default-features = false, features = ["webusb", "webserial"] }
 
 anyhow = { workspace = true, features = ["backtrace"] }
 clap = { workspace = true, features = ["derive"] }

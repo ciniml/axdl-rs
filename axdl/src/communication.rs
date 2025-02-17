@@ -353,6 +353,7 @@ pub fn write_image<R: std::io::Read>(
     Ok(())
 }
 
+#[cfg(feature = "async")]
 pub mod r#async {
     use crate::{communication::HANDSHAKE_REQUEST, transport::AsyncDevice, AxdlError};
 

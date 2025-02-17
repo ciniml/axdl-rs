@@ -15,8 +15,6 @@
 
 use std::time::Duration;
 
-use transport::AsyncDevice;
-
 pub mod communication;
 pub mod frame;
 pub mod partition;
@@ -253,258 +251,267 @@ pub fn download_image<R: std::io::Read + std::io::Seek, Progress: DownloadProgre
     Ok(())
 }
 
-type AsyncZipEntryReaderWithEntry<'a, R> =
-    async_zip::base::read::ZipEntryReader<'a, R, async_zip::base::read::WithEntry<'a>>;
+#[cfg(feature = "async")]
+mod r#async {
+    use crate::{AxdlError, DownloadProgress, DownloadConfig, communication, partition, transport::AsyncDevice};
 
-async fn read_zip_entry_as_string<
-    R: futures_io::AsyncBufRead + futures_io::AsyncSeek + Unpin,
-    F: Fn(&async_zip::ZipEntry) -> bool,
->(
-    archive: &mut async_zip::base::read::seek::ZipFileReader<R>,
-    predicate: F,
-) -> Result<Option<String>, AxdlError> {
-    for i in 0.. {
-        match archive.reader_with_entry(i).await {
-            Ok(mut reader) => {
-                if predicate(reader.entry()) {
-                    let mut config_string = String::new();
-                    reader
-                        .read_to_string_checked(&mut config_string)
-                        .await
-                        .map_err(AxdlError::ImageAsyncZipError)?;
-                    return Ok(Some(config_string));
+    type AsyncZipEntryReaderWithEntry<'a, R> =
+        async_zip::base::read::ZipEntryReader<'a, R, async_zip::base::read::WithEntry<'a>>;
+
+    async fn read_zip_entry_as_string<
+        R: futures_io::AsyncBufRead + futures_io::AsyncSeek + Unpin,
+        F: Fn(&async_zip::ZipEntry) -> bool,
+    >(
+        archive: &mut async_zip::base::read::seek::ZipFileReader<R>,
+        predicate: F,
+    ) -> Result<Option<String>, AxdlError> {
+        for i in 0.. {
+            match archive.reader_with_entry(i).await {
+                Ok(mut reader) => {
+                    if predicate(reader.entry()) {
+                        let mut config_string = String::new();
+                        reader
+                            .read_to_string_checked(&mut config_string)
+                            .await
+                            .map_err(AxdlError::ImageAsyncZipError)?;
+                        return Ok(Some(config_string));
+                    }
                 }
+                Err(async_zip::error::ZipError::EntryIndexOutOfBounds) => break,
+                Err(e) => return Err(AxdlError::ImageAsyncZipError(e.into())),
             }
-            Err(async_zip::error::ZipError::EntryIndexOutOfBounds) => break,
-            Err(e) => return Err(AxdlError::ImageAsyncZipError(e.into())),
         }
+        Ok(None)
     }
-    Ok(None)
-}
 
-enum WriteImagePartition {
-    Absolute32(u32),
-    Absolute64(u64),
-    PartitionId(String),
-}
+    enum WriteImagePartition {
+        Absolute32(u32),
+        Absolute64(u64),
+        PartitionId(String),
+    }
 
-async fn write_partition_from_zip_file_async<
-    R: futures_io::AsyncBufRead + futures_io::AsyncSeek + Unpin,
-    D: AsyncDevice,
->(
-    device: &mut D,
-    archive: &mut async_zip::base::read::seek::ZipFileReader<R>,
-    image_name: &str,
-    partition: &WriteImagePartition,
-    file_name: &str,
-    chunk_size: usize,
-    report_every: Option<usize>,
-    progress: &mut impl DownloadProgress,
-) -> Result<(), AxdlError> {
-    for i in 0.. {
-        match archive.reader_with_entry(i).await {
-            Ok(mut reader) => {
-                if reader
-                    .entry()
+    async fn write_partition_from_zip_file_async<
+        R: futures_io::AsyncBufRead + futures_io::AsyncSeek + Unpin,
+        D: AsyncDevice,
+    >(
+        device: &mut D,
+        archive: &mut async_zip::base::read::seek::ZipFileReader<R>,
+        image_name: &str,
+        partition: &WriteImagePartition,
+        file_name: &str,
+        chunk_size: usize,
+        report_every: Option<usize>,
+        progress: &mut impl DownloadProgress,
+    ) -> Result<(), AxdlError> {
+        for i in 0.. {
+            match archive.reader_with_entry(i).await {
+                Ok(mut reader) => {
+                    if reader
+                        .entry()
+                        .filename()
+                        .as_str()
+                        .map(|s| s == file_name)
+                        .unwrap_or(false)
+                    {
+                        let image_size = reader.entry().uncompressed_size();
+                        match partition {
+                            WriteImagePartition::Absolute32(address) => {
+                                communication::r#async::start_partition_absolute_32(
+                                    device,
+                                    *address,
+                                    image_size as u32,
+                                )
+                                .await?;
+                            }
+                            WriteImagePartition::Absolute64(address) => {
+                                communication::r#async::start_partition_absolute(
+                                    device, *address, image_size,
+                                )
+                                .await?;
+                            }
+                            WriteImagePartition::PartitionId(id) => {
+                                communication::r#async::start_partition_id(device, id, image_size)
+                                    .await?;
+                            }
+                        }
+                        communication::r#async::write_image(
+                            device,
+                            &mut reader,
+                            chunk_size,
+                            image_name,
+                            image_size as usize,
+                            report_every,
+                            progress,
+                        )
+                        .await?;
+                        communication::r#async::end_partition(device).await?;
+                        return Ok(());
+                    }
+                }
+                Err(async_zip::error::ZipError::EntryIndexOutOfBounds) => break,
+                Err(e) => return Err(AxdlError::ImageAsyncZipError(e.into())),
+            }
+        }
+        Err(AxdlError::ImageError(format!(
+            "image was not found in the image file: {}",
+            file_name
+        )))
+    }
+
+    #[cfg(feature = "async")]
+    pub async fn download_image_async<
+        R: futures_io::AsyncBufRead + futures_io::AsyncSeek + Unpin,
+        D: AsyncDevice,
+        Progress: DownloadProgress,
+    >(
+        image_reader: &mut R,
+        device: &mut D,
+        config: &DownloadConfig,
+        progress: &mut Progress,
+    ) -> Result<(), AxdlError> {
+        tracing::info!("download_image_async");
+        // Open the specified image file and find the configuration XML file.
+        let mut archive = async_zip::base::read::seek::ZipFileReader::new(image_reader)
+            .await
+            .map_err(AxdlError::ImageAsyncZipError)?;
+        tracing::info!("image file opened");
+        progress.report_progress("Loading the AXP image configuration", None);
+        // Load the axp image configuration.
+        let project = {
+            let config_string = read_zip_entry_as_string(&mut archive, |entry| {
+                entry
                     .filename()
                     .as_str()
-                    .map(|s| s == file_name)
+                    .map(|s| s.ends_with(".xml"))
                     .unwrap_or(false)
-                {
-                    let image_size = reader.entry().uncompressed_size();
-                    match partition {
-                        WriteImagePartition::Absolute32(address) => {
-                            communication::r#async::start_partition_absolute_32(
-                                device,
-                                *address,
-                                image_size as u32,
-                            )
-                            .await?;
-                        }
-                        WriteImagePartition::Absolute64(address) => {
-                            communication::r#async::start_partition_absolute(
-                                device, *address, image_size,
-                            )
-                            .await?;
-                        }
-                        WriteImagePartition::PartitionId(id) => {
-                            communication::r#async::start_partition_id(device, id, image_size)
-                                .await?;
-                        }
-                    }
-                    communication::r#async::write_image(
-                        device,
-                        &mut reader,
-                        chunk_size,
-                        image_name,
-                        image_size as usize,
-                        report_every,
-                        progress,
-                    )
-                    .await?;
-                    communication::r#async::end_partition(device).await?;
-                    return Ok(());
-                }
-            }
-            Err(async_zip::error::ZipError::EntryIndexOutOfBounds) => break,
-            Err(e) => return Err(AxdlError::ImageAsyncZipError(e.into())),
-        }
-    }
-    Err(AxdlError::ImageError(format!(
-        "image was not found in the image file: {}",
-        file_name
-    )))
-}
-
-pub async fn download_image_async<
-    R: futures_io::AsyncBufRead + futures_io::AsyncSeek + Unpin,
-    D: AsyncDevice,
-    Progress: DownloadProgress,
->(
-    image_reader: &mut R,
-    device: &mut D,
-    config: &DownloadConfig,
-    progress: &mut Progress,
-) -> Result<(), AxdlError> {
-    tracing::info!("download_image_async");
-    // Open the specified image file and find the configuration XML file.
-    let mut archive = async_zip::base::read::seek::ZipFileReader::new(image_reader)
-        .await
-        .map_err(AxdlError::ImageAsyncZipError)?;
-    tracing::info!("image file opened");
-    progress.report_progress("Loading the AXP image configuration", None);
-    // Load the axp image configuration.
-    let project = {
-        let config_string = read_zip_entry_as_string(&mut archive, |entry| {
-            entry
-                .filename()
-                .as_str()
-                .map(|s| s.ends_with(".xml"))
-                .unwrap_or(false)
-        })
-        .await?
-        .ok_or(AxdlError::ImageError(
-            "configuration file not found in the image".into(),
-        ))?;
-        let config: partition::deserialize::Config = serde_xml_rs::from_str(&config_string)
-            .map_err(|e| {
-                AxdlError::ImageError(format!("failed to parse the configuration file: {}", e))
-            })?;
-        partition::Project::from(config.project)
-    };
-
-    tracing::debug!("{:#?}", project);
-    let partition_table = project.partition_table();
-    tracing::debug!("{:#?}", partition_table);
-
-    tracing::debug!("Starting the download process...");
-    progress.report_progress("Start download", None);
-
-    // Check if romcode is running on the device.
-    progress.report_progress("Handshaking with the device", None);
-    communication::r#async::wait_handshake(device, "romcode").await?;
-
-    progress.report_progress("Downloading the flash downloaders", None);
-    // Find the FDL1 image and download it.
-    let fdl1_image = project
-        .images()
-        .iter()
-        .find(|image| image.name() == "FDL1")
-        .ok_or(AxdlError::ImageError("FDL1 image not found".into()))?;
-    let fdl1_image_file = fdl1_image.file().ok_or(AxdlError::ImageError(
-        "FDL1 image file not specified in the project".into(),
-    ))?;
-    let fdl1_address = match fdl1_image.block() {
-        partition::Block::Absolute(address) => address,
-        _ => return Err(AxdlError::ImageError("FDL1 block is not absolute".into())),
-    };
-
-    // Start the RAM download (FDL1)
-    communication::r#async::start_ram_download(device).await?;
-    write_partition_from_zip_file_async(
-        device,
-        &mut archive,
-        "FDL1",
-        &WriteImagePartition::Absolute32(*fdl1_address as u32),
-        fdl1_image_file,
-        1000,
-        Some(100),
-        progress,
-    )
-    .await?;
-    communication::r#async::end_ram_download(device).await?;
-
-    communication::r#async::wait_handshake(device, "fdl1").await?;
-
-    // Find the FDL2 image and download it.
-    let fdl2_image = project
-        .images()
-        .iter()
-        .find(|image| image.name() == "FDL2")
-        .ok_or(AxdlError::ImageError("FDL2 image not found".into()))?;
-    let fdl2_image_file = fdl2_image.file().ok_or(AxdlError::ImageError(
-        "FDL2 image file not specified in the project".into(),
-    ))?;
-    let fdl2_address = match fdl2_image.block() {
-        partition::Block::Absolute(address) => address,
-        _ => return Err(AxdlError::ImageError("FDL2 block is not absolute".into())),
-    };
-    // Start the RAM download (FDL2)
-    communication::r#async::start_ram_download(device).await?;
-    write_partition_from_zip_file_async(
-        device,
-        &mut archive,
-        "FDL2",
-        &WriteImagePartition::Absolute64(*fdl2_address),
-        fdl2_image_file,
-        1000,
-        Some(100),
-        progress,
-    )
-    .await?;
-    communication::r#async::end_ram_download(device).await?;
-
-    // Download the partition table.
-    progress.report_progress("Downloading the partition table", None);
-    communication::r#async::set_partition_table(device, &partition_table).await?;
-
-    // Download all of "CODE" images
-    for image in project.images().iter().filter(|image| {
-        image.r#type() == partition::ImageType::Code
-            && (!config.exclude_rootfs || image.name() != "ROOTFS")
-    }) {
-        tracing::debug!("Downloading image: {}", image.name());
-        progress.report_progress(&format!("Downloading image {}", image.name()), None);
-
-        progress.check_is_cancelled()?;
-
-        let image_file_name = image.file().ok_or(AxdlError::ImageError(format!(
-            "image {} file not specified in the project",
-            image.name()
-        )))?;
-
-        let image_id = match image.block() {
-            partition::Block::Partition(id) => id,
-            _ => {
-                return Err(AxdlError::ImageError(format!(
-                    "image {} block is not partition",
-                    image.name()
-                )))
-            }
+            })
+            .await?
+            .ok_or(AxdlError::ImageError(
+                "configuration file not found in the image".into(),
+            ))?;
+            let config: partition::deserialize::Config = serde_xml_rs::from_str(&config_string)
+                .map_err(|e| {
+                    AxdlError::ImageError(format!("failed to parse the configuration file: {}", e))
+                })?;
+            partition::Project::from(config.project)
         };
 
+        tracing::debug!("{:#?}", project);
+        let partition_table = project.partition_table();
+        tracing::debug!("{:#?}", partition_table);
+
+        tracing::debug!("Starting the download process...");
+        progress.report_progress("Start download", None);
+
+        // Check if romcode is running on the device.
+        progress.report_progress("Handshaking with the device", None);
+        communication::r#async::wait_handshake(device, "romcode").await?;
+
+        progress.report_progress("Downloading the flash downloaders", None);
+        // Find the FDL1 image and download it.
+        let fdl1_image = project
+            .images()
+            .iter()
+            .find(|image| image.name() == "FDL1")
+            .ok_or(AxdlError::ImageError("FDL1 image not found".into()))?;
+        let fdl1_image_file = fdl1_image.file().ok_or(AxdlError::ImageError(
+            "FDL1 image file not specified in the project".into(),
+        ))?;
+        let fdl1_address = match fdl1_image.block() {
+            partition::Block::Absolute(address) => address,
+            _ => return Err(AxdlError::ImageError("FDL1 block is not absolute".into())),
+        };
+
+        // Start the RAM download (FDL1)
+        communication::r#async::start_ram_download(device).await?;
         write_partition_from_zip_file_async(
             device,
             &mut archive,
-            image.name(),
-            &WriteImagePartition::PartitionId(image_id.clone()),
-            image_file_name,
-            48000,
+            "FDL1",
+            &WriteImagePartition::Absolute32(*fdl1_address as u32),
+            fdl1_image_file,
+            1000,
             Some(100),
             progress,
         )
         .await?;
+        communication::r#async::end_ram_download(device).await?;
+
+        communication::r#async::wait_handshake(device, "fdl1").await?;
+
+        // Find the FDL2 image and download it.
+        let fdl2_image = project
+            .images()
+            .iter()
+            .find(|image| image.name() == "FDL2")
+            .ok_or(AxdlError::ImageError("FDL2 image not found".into()))?;
+        let fdl2_image_file = fdl2_image.file().ok_or(AxdlError::ImageError(
+            "FDL2 image file not specified in the project".into(),
+        ))?;
+        let fdl2_address = match fdl2_image.block() {
+            partition::Block::Absolute(address) => address,
+            _ => return Err(AxdlError::ImageError("FDL2 block is not absolute".into())),
+        };
+        // Start the RAM download (FDL2)
+        communication::r#async::start_ram_download(device).await?;
+        write_partition_from_zip_file_async(
+            device,
+            &mut archive,
+            "FDL2",
+            &WriteImagePartition::Absolute64(*fdl2_address),
+            fdl2_image_file,
+            1000,
+            Some(100),
+            progress,
+        )
+        .await?;
+        communication::r#async::end_ram_download(device).await?;
+
+        // Download the partition table.
+        progress.report_progress("Downloading the partition table", None);
+        communication::r#async::set_partition_table(device, &partition_table).await?;
+
+        // Download all of "CODE" images
+        for image in project.images().iter().filter(|image| {
+            image.r#type() == partition::ImageType::Code
+                && (!config.exclude_rootfs || image.name() != "ROOTFS")
+        }) {
+            tracing::debug!("Downloading image: {}", image.name());
+            progress.report_progress(&format!("Downloading image {}", image.name()), None);
+
+            progress.check_is_cancelled()?;
+
+            let image_file_name = image.file().ok_or(AxdlError::ImageError(format!(
+                "image {} file not specified in the project",
+                image.name()
+            )))?;
+
+            let image_id = match image.block() {
+                partition::Block::Partition(id) => id,
+                _ => {
+                    return Err(AxdlError::ImageError(format!(
+                        "image {} block is not partition",
+                        image.name()
+                    )))
+                }
+            };
+
+            write_partition_from_zip_file_async(
+                device,
+                &mut archive,
+                image.name(),
+                &WriteImagePartition::PartitionId(image_id.clone()),
+                image_file_name,
+                48000,
+                Some(100),
+                progress,
+            )
+            .await?;
+        }
+        tracing::info!("Done");
+        Ok(())
     }
-    tracing::info!("Done");
-    Ok(())
 }
+
+#[cfg(feature = "async")]
+pub use r#async::*;
