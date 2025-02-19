@@ -4,6 +4,13 @@ resolver = "2"
 
 members = ["axdl", "axdl-cli", "axdl-gui"]
 
+[workspace.package]
+version = "0.1.1"
+authors = ["Kenta Ida"]
+edition = "2021"
+license = "Apache-2.0"
+repository = "https://github.com/ciniml/axdl-rs"
+
 [workspace.dependencies]
 anyhow = { version = "1.0.95", features = ["backtrace"] }
 bincode = "1.3.3"

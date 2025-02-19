@@ -1,10 +1,11 @@
 [package]
 name = "axdl-gui"
-version = "0.1.1"
-edition = "2021"
-license = "Apache-2.0"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Unofficial GUI image download tool for Axera SoCs"
-repository = "https://github.com/ciniml/axdl-gui"  # Updated repository link
 keywords = ["gui", "tool", "axera"]  # Updated keywords to reflect GUI
 categories = ["graphical-user-interfaces"]  # Updated category for GUI
 readme = "../README.md"
