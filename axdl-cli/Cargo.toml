@@ -1,10 +1,11 @@
 [package]
 name = "axdl-cli"
-version = "0.1.0"
-edition = "2021"
-license = "Apache-2.0"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
 description = "Unofficial CLI image download tool for Axera SoCs"
-repository = "https://github.com/ciniml/axdl-rs"
 keywords = ["cli", "tool", "axera"]
 categories = ["command-line-utilities"]
 readme = "../README.md"
