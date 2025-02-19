@@ -8,6 +8,7 @@ This is an unofficial Axera image downloader implementation in Rust to write ima
 
 - [Prepare](#Prepare)
 - [Install](#Install)
+- [Web Browser Version](#web-browser-version)
 - [Build](#build)
 - [Usage](#usage)
 - [License](#license)
@@ -44,13 +45,23 @@ sudo apt install -y libudev-dev libusb-1.0-0-dev
 
 ## Install
 
-You can run the web browser version from [https://www.fugafuga.org/axdl-rs/axdl-gui/latest/](https://www.fugafuga.org/axdl-rs/axdl-gui/latest/).
-
 `axdl-cli` can be installed via `cargo install`.
 
 ```
 cargo install axdl-cli
 ```
+
+## Web Browser Version
+
+You can run the web browser version from [https://www.fugafuga.org/axdl-rs/axdl-gui/latest/](https://www.fugafuga.org/axdl-rs/axdl-gui/latest/).
+
+![axdl-gui](./doc/axdl-gui.drawio.svg)
+
+1. Click `Open Image` and select the `.axp` file you want to flash.
+2. If you don’t want to flash the rootfs, check `Exclude rootfs`.
+3. Click `Open Device` to open the USB device selection screen.
+4. Connect the Axera SoC to the host in download mode. (For M5Stack Module LLM, hold down the BOOT button while plugging in the USB cable.)
+5. While the Axera SoC is in download mode, click `Download`. (If it exits download mode within about 10 seconds, redo step (3).)
 
 ## Build
 

@@ -8,6 +8,7 @@
 
 - [準備](#準備)
 - [インストール](#インストール)
+- [Webブラウザ版](#Webブラウザ版)
 - [ビルド](#ビルド)
 - [使用方法](#使用方法)
 - [ライセンス](#ライセンス)
@@ -44,13 +45,23 @@ sudo apt install -y libudev-dev libusb-1.0-0-dev
 
 ## インストール
 
-Webブラウザ版は [https://www.fugafuga.org/axdl-rs/axdl-gui/latest/](https://www.fugafuga.org/axdl-rs/axdl-gui/latest/) から実行できます。
-
 `axdl-cli` は `cargo install` にてインストールできます。
 
 ```
 cargo install axdl-cli
 ```
+
+## Webブラウザ版
+
+Webブラウザ版は [https://www.fugafuga.org/axdl-rs/axdl-gui/latest/](https://www.fugafuga.org/axdl-rs/axdl-gui/latest/) から実行できます。
+
+![axdl-gui](./doc/axdl-gui.drawio.svg)
+
+1. `Open Image` を押して書き込みたい `.axp` ファイルを選択します。
+2. rootfsを書き込みたくないなら `Exclude rootfs` にチェックを入れます。
+3. `Open Device` を押してUSBデバイス選択画面を表示します
+4. Axera SoCをダウンロードモードでホストに接続します。(M5Stack Module LLMの場合は、BOOTボタンを押しながらUSBケーブルを挿しこみます)
+5. Axera SoCがダウンロードモードで動作している間に `Download` ボタンを押します。 (10秒くらいでダウンロードモードから抜けてしまうので、その場合は (3) からやり直します。)
 
 ## ビルド
 
