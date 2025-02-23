@@ -18,7 +18,8 @@ use std::time::Duration;
 use crate::AxdlError;
 
 const HANDSHAKE_REQUEST: [u8; 3] = [0x3c, 0x3c, 0x3c];
-pub const TIMEOUT: Duration = Duration::from_secs(5);
+pub const TIMEOUT: Duration = Duration::from_secs(10*60);
+pub const TIMEOUT_WRITE_IMAGE: Duration = TIMEOUT;
 
 pub fn wait_handshake(
     device: &mut crate::transport::DynDevice,
@@ -329,8 +330,8 @@ pub fn write_image<R: std::io::Read>(
         }
         let chunk = &buffer[..bytes_read];
         start_block(device, chunk.len() as u16)?;
-        device.write_timeout(chunk, Duration::from_secs(60))?;
-        let response = receive_response(device, Duration::from_secs(60))?;
+        device.write_timeout(chunk, TIMEOUT_WRITE_IMAGE)?;
+        let response = receive_response(device, TIMEOUT_WRITE_IMAGE)?;
         let response_view = crate::frame::AxdlFrameView::new(&response);
         if response_view.command_response() != Some(0x0080) {
             return Err(AxdlError::UnexpectedResponse(
