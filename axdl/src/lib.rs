@@ -126,79 +126,120 @@ pub fn download_image<R: std::io::Read + std::io::Seek, Progress: DownloadProgre
     communication::wait_handshake(device, "romcode")?;
 
     progress.report_progress("Downloading the flash downloaders", None);
-    // Find the FDL1 image and download it.
-    let fdl1_image = project
-        .images()
-        .iter()
-        .find(|image| image.name() == "FDL1")
-        .ok_or(AxdlError::ImageError("FDL1 image not found".into()))?;
-    let fdl1_image_file = fdl1_image.file().ok_or(AxdlError::ImageError(
-        "FDL1 image file not specified in the project".into(),
-    ))?;
-    let mut fdl1 = archive.by_name(fdl1_image_file).map_err(|e| {
-        AxdlError::ImageError(format!("FDL1 image was not found in the image file: {}", e))
-    })?;
-    let fdl1_address = match fdl1_image.block() {
-        partition::Block::Absolute(address) => address,
-        _ => return Err(AxdlError::ImageError("FDL1 block is not absolute".into())),
-    };
+    if project.is2_level_fdl() { 
+        // Find the FDL1 image and download it.
+        let fdl1_image = project
+            .images()
+            .iter()
+            .find(|image| image.name() == "FDL1")
+            .ok_or(AxdlError::ImageError("FDL1 image not found".into()))?;
+        let fdl1_image_file = fdl1_image.file().ok_or(AxdlError::ImageError(
+            "FDL1 image file not specified in the project".into(),
+        ))?;
+        let mut fdl1 = archive.by_name(fdl1_image_file).map_err(|e| {
+            AxdlError::ImageError(format!("FDL1 image was not found in the image file: {}", e))
+        })?;
+        let fdl1_address = match fdl1_image.block() {
+            partition::Block::Absolute(address) => address,
+            _ => return Err(AxdlError::ImageError("FDL1 block is not absolute".into())),
+        };
 
-    // Start the RAM download (FDL1)
-    communication::start_ram_download(device)?;
-    let fdl1_image_size = fdl1.size();
-    communication::start_partition_absolute_32(
-        device,
-        *fdl1_address as u32,
-        fdl1_image_size as u32,
-    )?;
-    communication::write_image(
-        device,
-        &mut fdl1,
-        1000,
-        "FDL1",
-        fdl1_image_size as usize,
-        Some(100),
-        progress,
-    )?;
-    drop(fdl1);
-    communication::end_partition(device, communication::TIMEOUT)?;
-    communication::end_ram_download(device)?;
+        // Start the RAM download (FDL1)
+        communication::start_ram_download(device)?;
+        let fdl1_image_size = fdl1.size();
+        communication::start_partition_absolute_32(
+            device,
+            *fdl1_address as u32,
+            fdl1_image_size as u32,
+        )?;
+        communication::write_image(
+            device,
+            &mut fdl1,
+            1000,
+            "FDL1",
+            fdl1_image_size as usize,
+            Some(100),
+            progress,
+        )?;
+        drop(fdl1);
+        communication::end_partition(device, communication::TIMEOUT)?;
+        communication::end_ram_download(device)?;
 
-    communication::wait_handshake(device, "fdl1")?;
+        communication::wait_handshake(device, "fdl1")?;
 
-    // Find the FDL2 image and download it.
-    let fdl2_image = project
-        .images()
-        .iter()
-        .find(|image| image.name() == "FDL2")
-        .ok_or(AxdlError::ImageError("FDL2 image not found".into()))?;
-    let fdl2_image_file = fdl2_image.file().ok_or(AxdlError::ImageError(
-        "FDL2 image file not specified in the project".into(),
-    ))?;
-    let mut fdl2 = archive.by_name(fdl2_image_file).map_err(|e| {
-        AxdlError::ImageError(format!("FDL2 image was not found in the image file: {}", e))
-    })?;
-    let fdl2_address = match fdl2_image.block() {
-        partition::Block::Absolute(address) => address,
-        _ => return Err(AxdlError::ImageError("FDL2 block is not absolute".into())),
-    };
-    // Start the RAM download (FDL2)
-    communication::start_ram_download(device)?;
+        // Find the FDL2 image and download it.
+        let fdl2_image = project
+            .images()
+            .iter()
+            .find(|image| image.name() == "FDL2")
+            .ok_or(AxdlError::ImageError("FDL2 image not found".into()))?;
+        let fdl2_image_file = fdl2_image.file().ok_or(AxdlError::ImageError(
+            "FDL2 image file not specified in the project".into(),
+        ))?;
+        let mut fdl2 = archive.by_name(fdl2_image_file).map_err(|e| {
+            AxdlError::ImageError(format!("FDL2 image was not found in the image file: {}", e))
+        })?;
+        let fdl2_address = match fdl2_image.block() {
+            partition::Block::Absolute(address) => address,
+            _ => return Err(AxdlError::ImageError("FDL2 block is not absolute".into())),
+        };
+        // Start the RAM download (FDL2)
+        communication::start_ram_download(device)?;
 
-    let fdl2_image_size = fdl2.size();
-    communication::start_partition_absolute(device, *fdl2_address, fdl2_image_size)?;
-    communication::write_image(
-        device,
-        &mut fdl2,
-        1000,
-        "FDL2",
-        fdl2_image_size as usize,
-        Some(100),
-        progress,
-    )?;
-    drop(fdl2);
-    communication::end_partition(device, communication::TIMEOUT)?;
-    communication::end_ram_download(device)?;
+        let fdl2_image_size = fdl2.size();
+        communication::start_partition_absolute(device, *fdl2_address, fdl2_image_size)?;
+        communication::write_image(
+            device,
+            &mut fdl2,
+            1000,
+            "FDL2",
+            fdl2_image_size as usize,
+            Some(100),
+            progress,
+        )?;
+        drop(fdl2);
+        communication::end_partition(device, communication::TIMEOUT)?;
+        communication::end_ram_download(device)?;
+    }else{
+        let fdl1_image = project
+            .images()
+            .iter()
+            .find(|image| image.name() == "FDL")
+            .ok_or(AxdlError::ImageError("FDL image not found".into()))?;
+        let fdl1_image_file = fdl1_image.file().ok_or(AxdlError::ImageError(
+            "FDL image file not specified in the project".into(),
+        ))?;
+        let mut fdl1 = archive.by_name(fdl1_image_file).map_err(|e| {
+            AxdlError::ImageError(format!("FDL image was not found in the image file: {}", e))
+        })?;
+        let fdl1_address = match fdl1_image.block() {
+            partition::Block::Absolute(address) => address,
+            _ => return Err(AxdlError::ImageError("FDL block is not absolute".into())),
+        };
+
+        // Start the RAM download (FDL1)
+        communication::start_ram_download(device)?;
+        let fdl1_image_size = fdl1.size();
+        communication::start_partition_absolute_32(
+            device,
+            *fdl1_address as u32,
+            fdl1_image_size as u32,
+        )?;
+        communication::write_image(
+            device,
+            &mut fdl1,
+            1000,
+            "FDL",
+            fdl1_image_size as usize,
+            Some(100),
+            progress,
+        )?;
+        drop(fdl1);
+        communication::end_partition(device, communication::TIMEOUT)?;
+        communication::end_ram_download(device)?;
+
+        communication::wait_handshake(device, "fdl2")?;
+    }
 
     // Download the partition table.
     progress.report_progress("Downloading the partition table", None);
