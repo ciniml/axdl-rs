@@ -118,6 +118,7 @@ impl FromStr for ImageType {
             "EIP" => Ok(Self::Eip),
             "FDL1" => Ok(Self::Fdl1),
             "FDL2" => Ok(Self::Fdl2),
+            "FDL" => Ok(Self::Fdl2), //Single level FDL , AX650N
             "ERASEFLASH" => Ok(Self::EraseFlash),
             "CODE" => Ok(Self::Code),
             _ => Err(()),
@@ -166,6 +167,7 @@ impl Image {
 pub struct Project {
     partition_table: PartitionTable,
     images: Vec<Image>,
+    fdl_level: u32
 }
 
 impl Project {
@@ -175,6 +177,10 @@ impl Project {
 
     pub fn images(&self) -> &[Image] {
         &self.images
+    }
+
+    pub fn is2_level_fdl(&self) -> bool {
+        self.fdl_level == 2
     }
 }
 
@@ -217,6 +223,7 @@ pub mod deserialize {
             super::Project {
                 partition_table,
                 images,
+                fdl_level: project.fdl_level
             }
         }
     }
@@ -250,12 +257,24 @@ pub mod deserialize {
         #[serde(rename = "id")]
         id: String,
         #[serde(rename = "size")]
-        size: u64,
+        size: String,
+    }
+    
+    fn hex_to_u64(hex_string: &str) -> Option<u64> {
+        match u64::from_str_radix(hex_string, 16) {
+            Ok(parsed_int) => Some(parsed_int),
+            Err(_) => None,
+        }
     }
 
     impl From<Partition> for super::Partition {
         fn from(partition: Partition) -> Self {
-            super::Partition::new(partition.id, partition.gap, partition.size)
+            if partition.size.starts_with("0x") {
+                
+                super::Partition::new(partition.id, partition.gap, hex_to_u64(&partition.size[2..]).unwrap())
+            } else {
+                super::Partition::new(partition.id, partition.gap, partition.size.parse::<u64>().unwrap())
+            }
         }
     }
 
