@@ -5,7 +5,7 @@ resolver = "2"
 members = ["axdl", "axdl-cli", "axdl-gui"]
 
 [workspace.package]
-version = "0.1.1"
+version = "0.1.2"
 authors = ["Kenta Ida"]
 edition = "2021"
 license = "Apache-2.0"
