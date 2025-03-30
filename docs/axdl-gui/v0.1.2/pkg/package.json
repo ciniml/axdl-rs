@@ -1,0 +1,28 @@
+{
+  "name": "axdl-gui",
+  "collaborators": [
+    "Kenta Ida"
+  ],
+  "description": "Unofficial GUI image download tool for Axera SoCs",
+  "version": "0.1.2",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ciniml/axdl-rs"
+  },
+  "files": [
+    "axdl_gui_bg.wasm",
+    "axdl_gui.js",
+    "axdl_gui.d.ts"
+  ],
+  "module": "axdl_gui.js",
+  "types": "axdl_gui.d.ts",
+  "sideEffects": [
+    "./snippets/*"
+  ],
+  "keywords": [
+    "gui",
+    "tool",
+    "axera"
+  ]
+}

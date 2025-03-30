@@ -1,0 +1,138 @@
+# axdl-rs Unofficial Axera image downloader implementation in Rust
+
+This is an unofficial Axera image downloader implementation in Rust to write image file into Axera SoCs.
+
+[日本語](./README.ja.md)
+
+## Table of Contents
+
+- [Prepare](#Prepare)
+- [Install](#Install)
+- [Web Browser Version](#web-browser-version)
+- [Build](#build)
+- [Usage](#usage)
+- [License](#license)
+
+## Prepare
+
+### Linux (Debian based)
+
+In order to access to the device from a normal user, you have to configure udev to allow a normal user to access the device.
+To configure udev, copy `99-axdl.rules` into `/etc/udev/rules.d` and reload the configuration of udev.
+
+```
+sudo cp 99-axdl.rules /etc/udev/rules.d/
+sudo udevadm control --reload
+```
+
+If the user is not in the plugdev group, add them to it and re-login. (Group membership changes require a re-login to take effect.)
+
+```
+id
+# Confirm that ...,(plugdev),... is included in the output
+```
+
+```
+# Add the user to the plugdev group
+sudo usermod -a -G plugdev $USER
+```
+
+Since this tool depends on libusb and libudev, install them in advance:
+
+```
+sudo apt install -y libudev-dev libusb-1.0-0-dev
+```
+
+## Install
+
+`axdl-cli` can be installed via `cargo install`.
+
+```
+cargo install axdl-cli
+```
+
+## Web Browser Version
+
+You can run the web browser version from [https://www.fugafuga.org/axdl-rs/axdl-gui/latest/](https://www.fugafuga.org/axdl-rs/axdl-gui/latest/).
+
+![axdl-gui](./doc/axdl-gui.drawio.svg)
+
+1. Click `Open Image` and select the `.axp` file you want to flash.
+2. If you don’t want to flash the rootfs, check `Exclude rootfs`.
+3. Click `Open Device` to open the USB device selection screen.
+4. Connect the Axera SoC to the host in download mode. (For M5Stack Module LLM, hold down the BOOT button while plugging in the USB cable.)
+5. While the Axera SoC is in download mode, click `Download`. (If it exits download mode within about 10 seconds, redo step (3).)
+
+## Build
+
+Before building the project, install the Rust toolchain via rustup.
+
+```bash
+# Clone the repository
+git clone https://github.com/ciniml/axdl-rs.git
+
+# Change directory
+cd axdl-rs
+```
+### Building the Command-Line Version
+
+```
+# Build
+cargo build --bin axdl-cli --package axdl-cli
+```
+
+### Building the Web Browser Version
+
+To build the web browser version, install wasm-pack:
+
+```
+cargo install wasm-pack
+```
+
+Then build with wasm-pack:
+
+```
+cd axdl-gui
+wasm-pack build --target web --release
+```
+
+## Usage
+
+To burn a *.axp image, run the command below and plug the Axera SoC device with download mode.
+For M5Stack Module LLM, keep press the BOOT button and plug the USB cable into the device.
+
+```shell
+cargo run --bin axdl-cli --package axdl-cli -- --file /path/to/image.axp --wait-for-device
+```
+
+If you don't want to burn the rootfs, specify `--exclude-rootfs` option.
+
+```shell
+cargo run --bin axdl-cli --package axdl-cli -- --file /path/to/image.axp --wait-for-device --exclude-rootfs
+```
+
+On Windows or other platforms where the official Axera AXDL driver is installed, you can use serial port access by specifying the --transport serial option:
+
+```shell
+cargo run --bin axdl-cli --package axdl-cli -- --file /path/to/image.axp --wait-for-device --transport serial
+```
+
+### Web Browser Version
+
+After building, start a local HTTP server and access it from your browser. 
+A browser supporting WebUSB (such as Chrome) is required. 
+Below is an example of using Python’s HTTP module:
+
+```
+# Build the web browser version
+cd axdl-gui
+wasm-pack build --target web --release
+# Start the HTTP server
+python -m http.server 8000
+```
+
+Access http://localhost:8000 to open the web browser version.
+
+## License
+
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
