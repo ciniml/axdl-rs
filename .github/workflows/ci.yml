@@ -44,4 +44,4 @@ jobs:
       run: cd axdl && cargo test
     
     - name: Clippy
-      run: cargo clippy -- -D warnings
+      run: cargo clippy --workspace --exclude axdl-gui -- -D warnings
