@@ -1,0 +1,47 @@
+name: Rust CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+    - uses: actions/checkout@v3
+    
+    - name: Install Rust
+      uses: actions-rs/toolchain@v1
+      with:
+        toolchain: stable
+        override: true
+        components: rustfmt, clippy
+        target: wasm32-unknown-unknown
+    
+    - name: Install wasm-pack
+      run: cargo install wasm-pack
+    
+    - name: Install system dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y libudev-dev libusb-1.0-0-dev
+    
+    - name: Check axdl
+      run: cd axdl && cargo check
+    
+    - name: Check axdl-cli
+      run: cd axdl-cli && cargo check
+    
+    - name: Check axdl-gui
+      run: cd axdl-gui && cargo check --target wasm32-unknown-unknown
+    
+    - name: Run tests
+      run: cd axdl && cargo test
+    
+    - name: Clippy
+      run: cargo clippy --workspace --exclude axdl-gui -- -A warnings
