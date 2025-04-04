@@ -13,10 +13,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-use byteorder::{LittleEndian, ReadBytesExt, WriteBytesExt};
 use serde::{Deserialize, Serialize};
 use serde_bytes::ByteBuf;
-use std::io::{Cursor, Read, Write};
 use thiserror::Error;
 
 /// USBフレーム構造体
